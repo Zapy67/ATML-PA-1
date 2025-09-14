@@ -46,7 +46,7 @@ class VAE(nn.Module):
         h = F.relu(self.dec_fc1(z))
         h = F.relu(self.dec_fc2(h))
         h = F.relu(self.dec_fc3(h))
-        h = h.view(-1, 256, 4, 4)
+        h = h.view(-1, 128, 4, 4)
         h = F.relu(self.dec_deconv(h))
         x_recon = torch.sigmoid(self.dec_deconv2(h))
         return x_recon
