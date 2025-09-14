@@ -70,11 +70,7 @@ class GAN(nn.Module):
         
         # Generator
         self.generator = nn.Sequential(
-            nn.ConvTranspose2d(latent_dim, feat_maps*8, 4, 1, 0, bias=True),
-            nn.BatchNorm2d(feat_maps*8),
-            nn.ReLU(True),
-
-            nn.ConvTranspose2d(feat_maps*8, feat_maps*4, 4, 2, 1, bias=True),
+            nn.ConvTranspose2d(latent_dim, feat_maps*4, 4, 1, 0, bias=True),
             nn.BatchNorm2d(feat_maps*4),
             nn.ReLU(True),
 
@@ -103,11 +99,7 @@ class GAN(nn.Module):
             nn.BatchNorm2d(feat_maps*4),
             nn.LeakyReLU(0.2, inplace=True),
 
-            nn.Conv2d(feat_maps*4, feat_maps*8, 4, 2, 1, bias=True),
-            nn.BatchNorm2d(feat_maps*8),
-            nn.LeakyReLU(0.2, inplace=True),
-
-            nn.Conv2d(feat_maps*8, 1, 4, 1, 0, bias=True),
+            nn.Conv2d(feat_maps*4, 1, 4, 1, 0, bias=True),
             nn.Sigmoid()
         )
     
@@ -117,24 +109,43 @@ class GAN(nn.Module):
     def discriminate(self, x):
         return self.discriminator(x).view(-1, 1).squeeze(1)
         
-    def forward(self, x):
-        z = torch.randn(self.batch_size, self.latent_dim, 1, 1, device=x.device)
+    def forward(self, z):
+        return self.generate(z)
 
-        x_hat = self.generate(z)
-        
-        return self.discriminate(x), self.discriminate(x_hat.detach())  # detach so G isn't updated here
-
-    def train_step(self, x, loss_fn, g_opt, d_opt):
+    def train_step(self, x, loss_fn, g_opt, d_opt,
+                   epoch=None, sigma_start=0.05, sigma_end=0.0, anneal_epochs=20):
         batch_size = x.size(0)
-        # === Train Discriminator ===
-        self.discriminator.zero_grad()
 
-        # Real labels = 1, Fake labels = 0
-        real_labels = torch.ones(batch_size, device=x.device)
-        fake_labels = torch.zeros(batch_size, device=x.device)
+        # === Noise schedule (annealed) ===
+        if epoch is not None:
+            t = min(epoch, anneal_epochs) / max(1, anneal_epochs)
+            sigma = sigma_start * (1 - t) + sigma_end * t
+        else:
+            sigma = sigma_start  # fixed noise if no epoch passed
+
+        # === Train Discriminator ===
+        d_opt.zero_grad()
 
         # discriminator result
-        out_real, out_fake = self.forward(x)
+        z = torch.randn(batch_size, self.latent_dim, 1, 1, device=x.device)
+        x_hat = self.forward(z)
+
+        # Add lil bit of noise to real & fake before discrimination
+        if sigma > 0:
+            x = x + sigma * torch.randn_like(x)
+            x_hat = x_hat.detach() + sigma * torch.randn_like(x_hat)
+
+            # clamp to valid range for tanh-scaled images
+            x = x.clamp(-1.0, 1.0)
+            x_hat = x_hat.clamp(-1.0, 1.0)
+        else:
+            x_hat = x_hat.detach()
+
+        out_real, out_fake = self.discriminate(x), self.discriminate(x_hat) # detach so G isn't updated here
+
+        # Real labels = 1, Fake labels = 0
+        real_labels = torch.full((batch_size,), 0.9, device=x.device)
+        fake_labels = torch.zeros_like(out_fake)
 
         d_real_loss = loss_fn(out_real, real_labels)
         d_fake_loss = loss_fn(out_fake, fake_labels)
@@ -145,7 +156,7 @@ class GAN(nn.Module):
         d_opt.step()
 
         # === Train Generator ===
-        self.generator.zero_grad()
+        g_opt.zero_grad()
 
         # Want D to classify fakes as real
         z = torch.randn(batch_size, self.latent_dim, 1, 1, device=x.device)

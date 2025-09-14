@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torchvision.datasets import CIFAR10
 import torch.optim as optim
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 
@@ -12,9 +12,9 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Constants
 batch_size = 64
-epochs = 3
+epochs = 20
 lr = 2e-4
-betas = (0.5, 0.999) 
+betas = (0.5, 0.999)
 
 # Setting up Dataset
 transform = transforms.Compose([
@@ -54,12 +54,12 @@ def train_vae_step(model: VAE, train_loader, optimizer: optim.Adam, epoch, epoch
         train_recon_loss += recon_loss.item()
         train_kl_loss += kl_loss.item()
 
-        if batch_idx % 100 == 0:
-            print(f'Train Epoch: {epoch} [{batch_idx * len(data)}/{len(train_loader.dataset)} '
-                  f'({100. * batch_idx / len(train_loader):.0f}%)]\t'
-                  f'Loss: {loss.item() / len(data):.6f} '
-                  f'(Recon: {recon_loss.item() / len(data):.6f}, '
-                  f'KL: {kl_loss.item() / len(data):.6f})')
+        # if batch_idx % 100 == 0:
+        #     print(f'Train Epoch: {epoch} [{batch_idx * len(data)}/{len(train_loader.dataset)} '
+        #           f'({100. * batch_idx / len(train_loader):.0f}%)]\t'
+        #           f'Loss: {loss.item() / len(data):.6f} '
+        #           f'(Recon: {recon_loss.item() / len(data):.6f}, '
+        #           f'KL: {kl_loss.item() / len(data):.6f})')
 
     avg_loss = train_loss / len(train_loader.dataset)
     avg_recon_loss = train_recon_loss / len(train_loader.dataset)
@@ -102,7 +102,7 @@ def train_VAE(model: VAE, opt: optim.Adam, trainloader: DataLoader, testloader: 
     test_losses = []
 
     for epoch in range(1, epochs + 1):
-        train_loss, train_recon, train_kl = train_vae_step(model, trainloader, optimizer, epoch, epochs=epochs+1, beta=beta)
+        train_loss, train_recon, train_kl = train_vae_step(model, trainloader, opt, epoch, epochs=epochs+1, beta=beta)
         test_loss, test_recon, test_kl = test_vae_step(model, testloader, beta)
 
         train_losses.append(train_loss)
@@ -112,39 +112,83 @@ def train_VAE(model: VAE, opt: optim.Adam, trainloader: DataLoader, testloader: 
 
     return train_losses, test_losses, test_kl_losses, test_recon_losses
 
-model = VAE().to(device)
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, betas=(0.9, 0.99))
+def visualize_gaussian_generations(model, num_samples = 16):
+    """Visualize generated samples"""
+    import math
 
-print("=== Training VAE ===")
-print(f"Model has {sum(p.numel() for p in model.parameters())} parameters")
-print(f"Training on {device}")
-print(f"Epochs: {epochs}")
+    def generate_samples(model, num_samples=64):
+        """Generate new samples by sampling from the prior p(z) = N(0, I)"""
+        model.eval()
+        with torch.no_grad():
+            z = torch.randn(num_samples, 128).to(device)
+            samples = model.decode(z)
+        return samples
 
-train_losses, test_losses, test_kl_losses, test_recon_losses = train_VAE(model=model, opt=optimizer, trainloader=trainloader, testloader=testloader, beta=1.0)
+    # Reconstructions
+    model.eval()
+    samples = generate_samples(model, num_samples)
 
-plt.figure(figsize=(12, 5))
+    # Determine grid size automatically (square-ish)
+    grid_size = int(math.ceil(math.sqrt(num_samples)))
 
-# Subplot 1: Total Loss
-plt.subplot(1, 2, 1)
-plt.plot(train_losses, label='Train Loss')
-plt.plot(test_losses, label='Test Loss')
-plt.xlabel('Epoch')
-plt.ylabel('Loss')
-plt.title('Training and Test Loss')
-plt.legend()
+    fig, axes = plt.subplots(grid_size, grid_size, figsize=(grid_size*2, grid_size*2))
+    axes = axes.flatten()
 
-# Subplot 2: Recon vs KL (example)
-plt.subplot(1, 2, 2)
-plt.plot(test_recon_losses, label='Test Recon Loss')
-plt.plot(test_kl_losses, label='Test KL Loss')
-plt.xlabel('Epoch')
-plt.ylabel('Loss')
-plt.title('Recon vs KL Loss (Test)')
-plt.legend()
+    for i in range(num_samples):
+        img = samples[i].cpu().permute(1,2,0)
+        axes[i].imshow(img)
+        axes[i].axis("off")
 
-plt.tight_layout()
-plt.savefig("VAE_Training_Losses.png", dpi=300, bbox_inches='tight')
-plt.close()
+    # Hide any unused subplots if num_samples is not a perfect square
+    for j in range(num_samples, len(axes)):
+        axes[j].axis("off")
 
-# Save VAE Model
-torch.save(model.state_dict(), "vae_weights.pth")
+    plt.suptitle("Generated Samples (Gaussian Prior)")
+    plt.tight_layout()
+    plt.savefig("VAE_Generations_Base_Training.png", dpi=300, bbox_inches='tight')
+    plt.close()
+
+def main():
+    model = VAE().to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, betas=(0.9, 0.99))
+
+    print("=== Training VAE ===")
+    print(f"Model has {sum(p.numel() for p in model.parameters())} parameters")
+    print(f"Training on {device}")
+    print(f"Epochs: {epochs}")
+
+    train_losses, test_losses, test_kl_losses, test_recon_losses = train_VAE(model=model, opt=optimizer, trainloader=trainloader, testloader=testloader, epochs=epochs, beta=1.0)
+
+    print("=== Plotting Loss Curves ===")
+    plt.figure(figsize=(12, 5))
+
+    # Subplot 1: Total Loss
+    plt.subplot(1, 2, 1)
+    plt.plot(train_losses, label='Train Loss')
+    plt.plot(test_losses, label='Test Loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Training and Test Loss')
+    plt.legend()
+
+    # Subplot 2: Recon vs KL (example)
+    plt.subplot(1, 2, 2)
+    plt.plot(test_recon_losses, label='Test Recon Loss')
+    plt.plot(test_kl_losses, label='Test KL Loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Recon vs KL Loss (Test)')
+    plt.legend()
+
+    plt.tight_layout()
+    plt.savefig("VAE_Training_Losses.png", dpi=300, bbox_inches='tight')
+    plt.close()
+
+    print("=== Plotting Generated Samples ===")
+    visualize_gaussian_generations(model=model)
+
+    # Save VAE Model
+    torch.save(model.state_dict(), "vae_weights.pth")
+
+if __name__ == "__main__":
+    main()
