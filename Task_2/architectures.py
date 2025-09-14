@@ -6,19 +6,26 @@ class VAE(nn.Module):
     def __init__(self, latent_dim=128):
         super(VAE, self).__init__()
         # Encoder
-        self.enc_conv1 = nn.Conv2d(3, 32, 4, stride=2, padding=1)  
+        self.enc_conv1 = nn.Conv2d(3, 32, 4, stride=2, padding=1) # 32x32 -> 16x16
         self.enc_conv2 = nn.Conv2d(32, 64, 4, stride=2, padding=1) # 16x16 -> 8x8
         self.enc_conv3 = nn.Conv2d(64, 128, 4, stride=2, padding=1) # 8x8 -> 4x4
-        self.enc_fc = nn.Linear(128*4*4, 256)
-        self.fc_mu = nn.Linear(256, latent_dim)
-        self.fc_logvar = nn.Linear(256, latent_dim)
+        self.enc_fc = nn.Linear(128*4*4, 512)
+        self.fc_mu = nn.Linear(512, latent_dim)
+        self.fc_logvar = nn.Linear(512, latent_dim)
 
         # Decoder
-        self.dec_fc = nn.Linear(latent_dim, 256)
-        self.dec_fc2 = nn.Linear(256, 128*4*4)
-        self.dec_deconv1 = nn.ConvTranspose2d(128, 64, 4, 2, 1) # 8x8 <- 4x4
-        self.dec_deconv2 = nn.ConvTranspose2d(64, 32, 4, 2, 1) # 16x16 <- 8x8
-        self.dec_deconv3 = nn.ConvTranspose2d(32, 3, 4, 2, 1) # 32x32 <- 16x16
+        self.dec_fc1 = nn.Linear(latent_dim, latent_dim)
+        self.dec_fc2 = nn.Linear(latent_dim, 512)
+        self.dec_fc3 = nn.Linear(1024, 128*4*4)
+        self.dec_deconv = nn.Sequential(
+            nn.ConvTranspose2d(128, 128, 3, stride=2, padding=1, output_padding=1), # 8x8 <- 4x4
+            nn.ConvTranspose2d(128, 128, 3, stride=1, padding=1), # 8->8
+            nn.ConvTranspose2d(128, 64, 3, stride=2, padding=1, output_padding=0), # 8->16
+            nn.ConvTranspose2d(64, 64, 3, stride=1, padding=1), # 16->16
+            nn.ConvTranspose2d(64, 32, 3, stride=2, padding=1, output_padding=0), # 16->32
+            nn.ConvTranspose2d(32, 32, 3, stride=1, padding=1), # 32->32
+        )
+        self.dec_deconv2 = nn.Conv2d(32, 3, 3, padding=1) # 32 -> 32 
 
     def encode(self, x):
         x = F.relu(self.enc_conv1(x))
@@ -38,10 +45,10 @@ class VAE(nn.Module):
     def decode(self, z):
         h = F.relu(self.dec_fc(z))
         h = F.relu(self.dec_fc2(h))
-        h = h.view(-1, 128, 4, 4)
-        h = F.relu(self.dec_deconv1(h))
-        h = F.relu(self.dec_deconv2(h))
-        x_recon = torch.sigmoid(self.dec_deconv3(h))
+        h = F.relu(self.dec_fc3(h))
+        h = h.view(-1, 256, 4, 4)
+        h = F.relu(self.dec_deconv(h))
+        x_recon = torch.sigmoid(self.dec_deconv2(h))
         return x_recon
 
     def forward(self, x):
