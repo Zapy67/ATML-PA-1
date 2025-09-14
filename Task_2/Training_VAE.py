@@ -148,6 +148,45 @@ def visualize_gaussian_generations(model, num_samples = 16):
     plt.savefig("VAE_Generations_Base_Training.png", dpi=300, bbox_inches='tight')
     plt.close()
 
+def visualise_reconstructions(model: VAE, dataloader, num_samples=16):
+    import math
+    model.eval()
+
+    data_iter = iter(dataloader)
+    images, _ = next(data_iter)
+    images = images[:num_samples].to(device)
+
+    with torch.no_grad():
+        recon_images, _, _ = model(images)
+
+    # Determine grid size
+    grid_size = int(math.ceil(math.sqrt(num_samples)))
+
+    fig, axes = plt.subplots(grid_size, grid_size*2, figsize=(grid_size*4, grid_size*2))
+    axes = axes.flatten()
+
+    for i in range(num_samples):
+        # Original image
+        img_orig = images[i].cpu().permute(1,2,0)
+        axes[2*i].imshow(img_orig)
+        axes[2*i].set_title("Original")
+        axes[2*i].axis("off")
+
+        # Reconstructed image
+        img_recon = recon_images[i].cpu().permute(1,2,0)
+        axes[2*i + 1].imshow(img_recon)
+        axes[2*i + 1].set_title("Reconstructed")
+        axes[2*i + 1].axis("off")
+
+    # Hide any unused axes
+    for j in range(2*num_samples, len(axes)):
+        axes[j].axis("off")
+
+    plt.suptitle("VAE Reconstructions")
+    plt.tight_layout()
+    plt.savefig("VAE_Reconstructions.png", dpi=300, bbox_inches='tight')
+    plt.close()
+
 def main():
     model = VAE().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, betas=(0.9, 0.99))
@@ -184,8 +223,10 @@ def main():
     plt.savefig("VAE_Training_Losses.png", dpi=300, bbox_inches='tight')
     plt.close()
 
-    print("=== Plotting Generated Samples ===")
+    print("=== Plotting Generated Samples And Reconstructions ===")
     visualize_gaussian_generations(model=model)
+
+    visualise_reconstructions(model=model, dataloader=testloader)
 
     # Save VAE Model
     torch.save(model.state_dict(), "vae_weights.pth")

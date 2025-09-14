@@ -14,8 +14,8 @@ class VAE(nn.Module):
         self.fc_logvar = nn.Linear(512, latent_dim)
 
         # Decoder
-        self.dec_fc1 = nn.Linear(latent_dim, latent_dim)
-        self.dec_fc2 = nn.Linear(latent_dim, 512)
+        self.dec_fc1 = nn.Linear(latent_dim, 2048)
+        self.dec_fc2 = nn.Linear(2048, 512)
         self.dec_fc3 = nn.Linear(512, 128*4*4)
         self.dec_deconv = nn.Sequential(
             nn.ConvTranspose2d(128, 128, 4, stride=2, padding=1),  # 8x8 <- 4x4
