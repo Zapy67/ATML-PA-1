@@ -94,7 +94,7 @@ class GAN(nn.Module):
             nn.BatchNorm2d(feat_maps),
             nn.ReLU(True),
 
-            nn.ConvTranspose2d(feat_maps, img_channels, 4, 2, 1, bias=True),
+            nn.Conv2d(feat_maps, img_channels, kernel_size=3, stride=1, padding=1, bias=True),
             nn.Tanh()
         )
 
