@@ -64,6 +64,7 @@ def vae_loss(x_reconstruction, x, mu, logvar, epoch=None, epochs=None, beta=1.0)
     
 class GAN(nn.Module):
     def __init__(self, latent_dim=128, img_channels=3, feat_maps=32, batch_size=64):
+        super(GAN, self).__init__()
         self.batch_size = batch_size
         self.latent_dim = latent_dim
         

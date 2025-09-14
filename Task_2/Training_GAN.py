@@ -15,7 +15,7 @@ latent_dim = 128
 img_channels = 3
 feat_maps = 32
 batch_size = 64
-epochs = 50
+epochs = 3
 lr = 2e-4
 betas = (0.5, 0.999) 
 
@@ -27,6 +27,7 @@ transform = transforms.Compose([
                          std=[0.5, 0.5, 0.5])
 ])
 
+print("=== Downloading CIFAR-10 ===")
 trainset = CIFAR10(root="./data", train=True, download=True, transform=transform)
 testset = CIFAR10(root="./data", train=False, download=True, transform=transform)
 

@@ -12,7 +12,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Constants
 batch_size = 64
-epochs = 50
+epochs = 3
 lr = 2e-4
 betas = (0.5, 0.999) 
 
@@ -21,6 +21,7 @@ transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
+print("=== Downloading CIFAR-10 ===")
 trainset = CIFAR10(root="./data", train=True, download=True, transform=transform)
 testset = CIFAR10(root="./data", train=False, download=True, transform=transform)
 
