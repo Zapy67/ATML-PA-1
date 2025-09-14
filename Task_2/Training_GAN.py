@@ -16,7 +16,7 @@ latent_dim = 128
 img_channels = 3
 feat_maps = 32
 batch_size = 64
-epochs = 25
+epochs = 20
 lr = 2e-4
 betas = (0.5, 0.999) 
 

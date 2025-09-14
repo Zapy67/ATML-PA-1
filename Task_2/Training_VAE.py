@@ -12,9 +12,9 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Constants
 batch_size = 64
-epochs = 25
-lr = 2e-4
-betas = (0.6, 0.999)
+epochs = 15
+lr = 3e-4
+betas = (0.9, 0.999)
 
 # Setting up Dataset
 transform = transforms.Compose([
