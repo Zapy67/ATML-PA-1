@@ -18,12 +18,10 @@ class VAE(nn.Module):
         self.dec_fc2 = nn.Linear(latent_dim, 512)
         self.dec_fc3 = nn.Linear(512, 128*4*4)
         self.dec_deconv = nn.Sequential(
-            nn.ConvTranspose2d(128, 128, 3, stride=2, padding=1, output_padding=1), # 8x8 <- 4x4
-            nn.ConvTranspose2d(128, 128, 3, stride=1, padding=1), # 8->8
-            nn.ConvTranspose2d(128, 64, 3, stride=2, padding=1, output_padding=0), # 8->16
-            nn.ConvTranspose2d(64, 64, 3, stride=1, padding=1), # 16->16
-            nn.ConvTranspose2d(64, 32, 3, stride=2, padding=1, output_padding=0), # 16->32
-            nn.ConvTranspose2d(32, 32, 3, stride=1, padding=1), # 32->32
+            nn.ConvTranspose2d(128, 128, 4, stride=2, padding=1),  # 8x8 <- 4x4
+            nn.ConvTranspose2d(128, 64, 4, stride=2, padding=1),   # 16x16 <- 8x8
+            nn.ConvTranspose2d(64, 32, 4, stride=2, padding=1),    # 32x32 <- 16x16
+            nn.Conv2d(32, 32, 3, stride=1, padding=1),             # 32x32
         )
         self.dec_deconv2 = nn.Conv2d(32, 3, 3, padding=1) # 32 -> 32 
 
