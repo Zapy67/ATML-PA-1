@@ -43,7 +43,7 @@ class VAE(nn.Module):
         return mu + eps*std
 
     def decode(self, z):
-        h = F.relu(self.dec_fc(z))
+        h = F.relu(self.dec_fc1(z))
         h = F.relu(self.dec_fc2(h))
         h = F.relu(self.dec_fc3(h))
         h = h.view(-1, 256, 4, 4)
