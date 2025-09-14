@@ -6,21 +6,24 @@ class VAE(nn.Module):
     def __init__(self, latent_dim=128):
         super(VAE, self).__init__()
         # Encoder
-        self.enc_conv1 = nn.Conv2d(3, 32, 4, stride=2, padding=1)  # 32x32 -> 16x16
+        self.enc_conv1 = nn.Conv2d(3, 32, 4, stride=2, padding=1)  
         self.enc_conv2 = nn.Conv2d(32, 64, 4, stride=2, padding=1) # 16x16 -> 8x8
-        self.enc_fc = nn.Linear(64*8*8, 256)
+        self.enc_conv3 = nn.Conv2d(64, 128, 4, stride=2, padding=1) # 8x8 -> 4x4
+        self.enc_fc = nn.Linear(128*4*4, 256)
         self.fc_mu = nn.Linear(256, latent_dim)
         self.fc_logvar = nn.Linear(256, latent_dim)
 
         # Decoder
         self.dec_fc = nn.Linear(latent_dim, 256)
-        self.dec_fc2 = nn.Linear(256, 64*8*8)
-        self.dec_deconv1 = nn.ConvTranspose2d(64, 32, 4, stride=2, padding=1) # 8x8 -> 16x16
-        self.dec_deconv2 = nn.ConvTranspose2d(32, 3, 4, stride=2, padding=1)  # 16x16 -> 32x32
+        self.dec_fc2 = nn.Linear(256, 128*4*4)
+        self.dec_deconv1 = nn.ConvTranspose2d(128, 64, 4, 2, 1) # 8x8 <- 4x4
+        self.dec_deconv2 = nn.ConvTranspose2d(64, 32, 4, 2, 1) # 16x16 <- 8x8
+        self.dec_deconv3 = nn.ConvTranspose2d(32, 3, 4, 2, 1) # 32x32 <- 16x16
 
     def encode(self, x):
         x = F.relu(self.enc_conv1(x))
         x = F.relu(self.enc_conv2(x))
+        x = F.relu(self.enc_conv3(x))
         x = x.view(x.size(0), -1)
         h = F.relu(self.enc_fc(x))
         mu = self.fc_mu(h)
@@ -35,9 +38,10 @@ class VAE(nn.Module):
     def decode(self, z):
         h = F.relu(self.dec_fc(z))
         h = F.relu(self.dec_fc2(h))
-        h = h.view(-1, 64, 8, 8)
+        h = h.view(-1, 128, 4, 4)
         h = F.relu(self.dec_deconv1(h))
-        x_recon = torch.sigmoid(self.dec_deconv2(h))
+        h = F.relu(self.dec_deconv2(h))
+        x_recon = torch.sigmoid(self.dec_deconv3(h))
         return x_recon
 
     def forward(self, x):
@@ -46,8 +50,7 @@ class VAE(nn.Module):
         return self.decode(z), mu, logvar
 
 def vae_loss(x_reconstruction, x, mu, logvar, epoch=None, epochs=None, beta=1.0):
-    # recon_loss = F.mse_loss(x_reconstruction, x, reduction='sum')
-    recon_loss = F.binary_cross_entropy(x_reconstruction, x, reduction="sum")
+    recon_loss = F.mse_loss(x_reconstruction, x, reduction="sum")
     kl_loss = 0.5 * torch.sum(mu.pow(2) + logvar.exp() - logvar - 1)
 
     # KL Annealing
