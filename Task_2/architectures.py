@@ -78,7 +78,11 @@ class GAN(nn.Module):
         
         # Generator
         self.generator = nn.Sequential(
-            nn.ConvTranspose2d(latent_dim, feat_maps*4, 4, 1, 0, bias=True),
+            nn.ConvTranspose2d(latent_dim, feat_maps*8, 4, 1, 0, bias=True),
+            nn.BatchNorm2d(feat_maps*8),
+            nn.ReLU(True),
+
+            nn.ConvTranspose2d(feat_maps*8, feat_maps*4, 4, 2, 1, bias=True),
             nn.BatchNorm2d(feat_maps*4),
             nn.ReLU(True),
 
@@ -86,11 +90,7 @@ class GAN(nn.Module):
             nn.BatchNorm2d(feat_maps*2),
             nn.ReLU(True),
 
-            nn.ConvTranspose2d(feat_maps*2, feat_maps, 4, 2, 1, bias=True),
-            nn.BatchNorm2d(feat_maps),
-            nn.ReLU(True),
-
-            nn.ConvTranspose2d(feat_maps, img_channels, 4, 2, 1, bias=True),
+            nn.ConvTranspose2d(feat_maps*2, img_channels, 4, 2, 1, bias=True),
             nn.Tanh()
         )
 
@@ -107,8 +107,7 @@ class GAN(nn.Module):
             nn.BatchNorm2d(feat_maps*4),
             nn.LeakyReLU(0.2, inplace=True),
 
-            nn.Conv2d(feat_maps*4, 1, 4, 1, 0, bias=True),
-            nn.Sigmoid()
+            nn.Conv2d(feat_maps*4, 1, 4, 1, 0, bias=True)
         )
     
     def generate(self, z):
