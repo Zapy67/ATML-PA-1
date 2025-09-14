@@ -3,6 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.datasets import CIFAR10
 import torch.optim as optim
+from torch.utils.data import DataLoader, random_split
+import torchvision.transforms as transforms
+import matplotlib.pyplot as plt
 
 from architectures import VAE, GAN
 
@@ -17,8 +20,32 @@ epochs = 50
 lr = 2e-4
 betas = (0.5, 0.999) 
 
+# Setting up DataSet
+transform_gan = transforms.Compose([
+    transforms.Resize(64),  # DCGAN expects 64x64
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.5, 0.5, 0.5],
+                         std=[0.5, 0.5, 0.5])
+])
+
+transform_vae = transforms.Compose([
+    transforms.ToTensor()
+])
+
+trainset_gan = CIFAR10(root="./data", train=True, download=True, transform=transform_gan)
+testset_gan = CIFAR10(root="./data", train=False, download=True, transform=transform_gan)
+
+trainset_vae = CIFAR10(root="./data", train=True, download=True, transform=transform_vae)
+testset_vae = CIFAR10(root="./data", train=False, download=True, transform=transform_vae)
+
+trainloader_gan = DataLoader(trainset_gan, batch_size=batch_size, shuffle=True, num_workers=2)
+testloader_gan = DataLoader(testset_gan, batch_size=batch_size, shuffle=False, num_workers=2)
+
+trainloader_vae = DataLoader(trainset_vae, batch_size=batch_size, shuffle=True, num_workers=2)
+testloader_vae = DataLoader(testset_vae, batch_size=batch_size, shuffle=False, num_workers=2)
+
 # Setting Up GAE Training
-model = GAN(latent_dim, img_channels, feat_maps, batch_size)
+model = GAN(latent_dim, img_channels, feat_maps, batch_size).to(device=device)
 
 g_opt = optim.Adam(model.generator.parameters(), lr=lr, betas=betas)
 d_opt = optim.Adam(model.discriminator.parameters(), lr=lr, betas=betas)
@@ -28,38 +55,46 @@ loss_fn = nn.BCELoss()
 noise = torch.randn(batch_size, latent_dim, 1, 1, device=device)
 
 # training loop
-def train_GAN(model: GAN, g_opt: optim.Adam, d_opt: optim.Adam, loss_fn: nn.BCELoss, dataloader: torch.utils.data.DataLoader, epochs):
-    for epoch in epochs:
+def train_GAN(model: GAN, g_opt: optim.Adam, d_opt: optim.Adam, loss_fn: nn.BCELoss, dataloader: DataLoader, epochs):
+    model.generator.train()
+    model.discriminator.train()
+
+    all_g_losses = []
+    all_d_losses = []
+
+    for epoch in range(epochs):
+        g_losses = []
+        d_losses = []
         for (real_imgs, _) in dataloader:
             real_imgs = real_imgs.to(device)
-             # === Train Discriminator ===
-            model.discriminator.zero_grad()
 
-            # Real labels = 1, Fake labels = 0
-            real_labels = torch.ones(real_imgs.size(0), device=device)
-            fake_labels = torch.zeros(real_imgs.size(0), device=device)
+            d_loss, g_loss = model.train_step(real_imgs, loss_fn=loss_fn, g_opt=g_opt, d_opt=d_opt)
 
-            # Real images
-            out_real = model.discriminate(real_imgs)
-            loss_d_real = loss_fn(out_real, real_labels)
+            g_losses.append(g_loss)
+            d_losses.append(d_loss)
 
-            # Fake images
-            z = torch.randn(real_imgs.size(0), latent_dim, 1, 1, device=device)
-            fake_imgs = model.generate(z)
-            out_fake = model.discriminate(fake_imgs.detach())  # detach so G isn't updated here
-            loss_d_fake = loss_fn(out_fake, fake_labels)
+        epoch_g_loss = sum(g_losses) / len(g_losses)
+        epoch_d_loss = sum(d_losses) / len(d_losses)
 
-            # Combine & update D
-            loss_d = loss_d_real + loss_d_fake
-            loss_d.backward()
-            d_opt.step()
+        all_g_losses.append(epoch_g_loss)
+        all_d_losses.append(epoch_d_loss)
 
-            # === Train Generator ===
-            model.generator.zero_grad()
+        print(f"Epoch [{epoch+1}/{epochs}]  D_loss: {epoch_d_loss:.4f}  G_loss: {epoch_g_loss:.4f}")
 
-            # Want D to classify fakes as real
-            out_fake_g = model.discriminate(fake_imgs)
-            loss_g = loss_fn(out_fake_g, real_labels)
+    return all_g_losses, all_d_losses
 
-            loss_g.backward()
-            g_opt.step()
+g_losses, d_losses = train_GAN(model=model, g_opt=g_opt, d_opt=d_opt, loss_fn=loss_fn, dataloader=trainloader_gan, epochs=epochs)
+
+plt.plot(g_losses, label='Generator Loss')
+plt.plot(d_losses, label='Discriminator Loss')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.legend()
+plt.title('GAN Training Losses')
+
+plt.savefig("GAN_Training_Losses.png", dpi=300, bbox_inches='tight')
+plt.close()
+
+# Save GAN Model
+torch.save(model.state_dict(), "gan_weights.pth")
+
