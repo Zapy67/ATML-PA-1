@@ -107,7 +107,8 @@ class GAN(nn.Module):
             nn.BatchNorm2d(feat_maps*4),
             nn.LeakyReLU(0.2, inplace=True),
 
-            nn.Conv2d(feat_maps*4, 1, 4, 1, 0, bias=True)
+            nn.Conv2d(feat_maps*4, 1, 4, 1, 0, bias=True),
+            nn.Sigmoid()
         )
     
     def generate(self, z):
