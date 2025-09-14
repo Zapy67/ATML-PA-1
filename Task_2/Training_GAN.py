@@ -16,8 +16,9 @@ latent_dim = 128
 img_channels = 3
 feat_maps = 32
 batch_size = 64
-epochs = 20
-lr = 2e-4
+epochs = 40
+lr_g = 2e-4
+lr_d = 1e-4
 betas = (0.5, 0.999) 
 
 # Setting up Dataset
@@ -76,8 +77,8 @@ def show_generated(images, nrow=4):
 def main():
     model = GAN(latent_dim, img_channels, feat_maps, batch_size).to(device=device)
 
-    g_opt = optim.Adam(model.generator.parameters(), lr=lr, betas=betas)
-    d_opt = optim.Adam(model.discriminator.parameters(), lr=lr, betas=betas)
+    g_opt = optim.Adam(model.generator.parameters(), lr=lr_g, betas=betas)
+    d_opt = optim.Adam(model.discriminator.parameters(), lr=lr_d, betas=betas)
     loss_fn = nn.BCELoss()
 
     print("=== Training GAN ===")

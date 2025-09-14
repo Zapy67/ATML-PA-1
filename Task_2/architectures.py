@@ -90,7 +90,11 @@ class GAN(nn.Module):
             nn.BatchNorm2d(feat_maps*2),
             nn.ReLU(True),
 
-            nn.ConvTranspose2d(feat_maps*2, img_channels, 4, 2, 1, bias=True),
+            nn.ConvTranspose2d(feat_maps*2, feat_maps, 4, 2, 1, bias=True),
+            nn.BatchNorm2d(feat_maps),
+            nn.ReLU(True),
+
+            nn.ConvTranspose2d(feat_maps, img_channels, 4, 2, 1, bias=True),
             nn.Tanh()
         )
 
@@ -121,7 +125,7 @@ class GAN(nn.Module):
         return self.generate(z)
 
     def train_step(self, x, loss_fn, g_opt, d_opt,
-                   epoch=None, sigma_start=0.05, sigma_end=0.0, anneal_epochs=20):
+                   epoch=None, sigma_start=0.05, sigma_end=0.01, anneal_epochs=30):
         batch_size = x.size(0)
 
         # === Noise schedule (annealed) ===
