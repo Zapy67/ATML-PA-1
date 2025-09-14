@@ -44,6 +44,23 @@ class VAE(nn.Module):
         mu, logvar = self.encode(x)
         z = self.reparameterize(mu, logvar)
         return self.decode(z), mu, logvar
+
+def vae_loss(x_reconstruction, x, mu, logvar, epoch=None, epochs=None, beta=1.0):
+    # recon_loss = F.mse_loss(x_reconstruction, x, reduction='sum')
+    recon_loss = F.binary_cross_entropy(x_reconstruction, x, reduction="sum")
+    kl_loss = 0.5 * torch.sum(mu.pow(2) + logvar.exp() - logvar - 1)
+
+    # KL Annealing
+    if epoch is not None and epochs is not None:
+        kl_weight = beta * epoch/epochs
+    else:
+        kl_weight = 1.0
+
+    total_loss = (recon_loss + kl_weight * kl_loss) / x.size(0)
+    recon_loss = recon_loss / x.size(0)
+    kl_loss = kl_loss / x.size(0)
+
+    return total_loss, recon_loss, kl_loss
     
 class GAN(nn.Module):
     def __init__(self, latent_dim=128, img_channels=3, feat_maps=32, batch_size=64):

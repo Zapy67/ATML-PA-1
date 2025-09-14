@@ -1,13 +1,12 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torchvision.datasets import CIFAR10
 import torch.optim as optim
 from torch.utils.data import DataLoader, random_split
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 
-from architectures import VAE, GAN
+from architectures import VAE, GAN, vae_loss
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -20,31 +19,21 @@ epochs = 50
 lr = 2e-4
 betas = (0.5, 0.999) 
 
-# Setting up DataSet
-transform_gan = transforms.Compose([
+# Setting up Dataset
+transform = transforms.Compose([
     transforms.Resize(64),  # DCGAN expects 64x64
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.5, 0.5, 0.5],
                          std=[0.5, 0.5, 0.5])
 ])
 
-transform_vae = transforms.Compose([
-    transforms.ToTensor()
-])
+trainset = CIFAR10(root="./data", train=True, download=True, transform=transform)
+testset = CIFAR10(root="./data", train=False, download=True, transform=transform)
 
-trainset_gan = CIFAR10(root="./data", train=True, download=True, transform=transform_gan)
-testset_gan = CIFAR10(root="./data", train=False, download=True, transform=transform_gan)
+trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=2)
+testloader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=2)
 
-trainset_vae = CIFAR10(root="./data", train=True, download=True, transform=transform_vae)
-testset_vae = CIFAR10(root="./data", train=False, download=True, transform=transform_vae)
-
-trainloader_gan = DataLoader(trainset_gan, batch_size=batch_size, shuffle=True, num_workers=2)
-testloader_gan = DataLoader(testset_gan, batch_size=batch_size, shuffle=False, num_workers=2)
-
-trainloader_vae = DataLoader(trainset_vae, batch_size=batch_size, shuffle=True, num_workers=2)
-testloader_vae = DataLoader(testset_vae, batch_size=batch_size, shuffle=False, num_workers=2)
-
-# Setting Up GAE Training
+# === GAN Training ===
 model = GAN(latent_dim, img_channels, feat_maps, batch_size).to(device=device)
 
 g_opt = optim.Adam(model.generator.parameters(), lr=lr, betas=betas)
@@ -83,7 +72,12 @@ def train_GAN(model: GAN, g_opt: optim.Adam, d_opt: optim.Adam, loss_fn: nn.BCEL
 
     return all_g_losses, all_d_losses
 
-g_losses, d_losses = train_GAN(model=model, g_opt=g_opt, d_opt=d_opt, loss_fn=loss_fn, dataloader=trainloader_gan, epochs=epochs)
+print("=== Training GAN ===")
+print(f"Model has {sum(p.numel() for p in model.parameters())} parameters")
+print(f"Training on {device}")
+print(f"Epochs: {epochs}")
+
+g_losses, d_losses = train_GAN(model=model, g_opt=g_opt, d_opt=d_opt, loss_fn=loss_fn, dataloader=trainloader, epochs=epochs)
 
 plt.plot(g_losses, label='Generator Loss')
 plt.plot(d_losses, label='Discriminator Loss')
@@ -97,4 +91,3 @@ plt.close()
 
 # Save GAN Model
 torch.save(model.state_dict(), "gan_weights.pth")
-
