@@ -12,9 +12,9 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Constants
 batch_size = 64
-epochs = 15
-lr = 2e-4
-betas = (0.7, 0.999)
+epochs = 50
+lr = 1e-3
+betas = (0.6, 0.99)
 
 # Setting up Dataset
 transform = transforms.Compose([
@@ -190,13 +190,14 @@ def visualise_reconstructions(model: VAE, dataloader, num_samples=16):
 def main():
     model = VAE().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, betas=(0.9, 0.99))
+    BETA = 0.00075
 
     print("=== Training VAE ===")
     print(f"Model has {sum(p.numel() for p in model.parameters())} parameters")
     print(f"Training on {device}")
     print(f"Epochs: {epochs}")
 
-    train_losses, test_losses, test_kl_losses, test_recon_losses = train_VAE(model=model, opt=optimizer, trainloader=trainloader, testloader=testloader, epochs=epochs, beta=1.0)
+    train_losses, test_losses, test_kl_losses, test_recon_losses = train_VAE(model=model, opt=optimizer, trainloader=trainloader, testloader=testloader, epochs=epochs, beta=BETA)
 
     print("=== Plotting Loss Curves ===")
     plt.figure(figsize=(12, 5))

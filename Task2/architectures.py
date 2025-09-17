@@ -6,26 +6,26 @@ class VAE(nn.Module):
     def __init__(self, latent_dim=128):
         super(VAE, self).__init__()
         # Encoder
-        self.enc_conv1 = nn.Conv2d(3, 32, 4, stride=2, padding=1) # 32x32 -> 16x16
-        self.enc_conv2 = nn.Conv2d(32, 64, 4, stride=2, padding=1) # 16x16 -> 8x8
-        self.enc_conv3 = nn.Conv2d(64, 128, 4, stride=2, padding=1) # 8x8 -> 4x4
+        self.enc_conv1 = nn.Conv2d(3, 32, 3, stride=2, padding=1) # 32x32 -> 16x16
+        self.enc_conv2 = nn.Conv2d(32, 64, 3, stride=2, padding=1) # 16x16 -> 8x8
+        self.enc_conv3 = nn.Conv2d(64, 128, 3, stride=2, padding=1) # 8x8 -> 4x4
         self.enc_fc = nn.Linear(128*4*4, 512)
         self.fc_mu = nn.Linear(512, latent_dim)
         self.fc_logvar = nn.Linear(512, latent_dim)
 
         # Decoder
-        self.dec_fc1 = nn.Linear(latent_dim, 2048)
-        self.dec_fc2 = nn.Linear(2048, 512)
-        self.dec_fc3 = nn.Linear(512, 128*4*4)
+        self.dec_fc1 = nn.Linear(latent_dim, 128*4*4) # [batch, 2048]
+        self.reconv = nn.Unflatten(1, (128, 4, 4)) # [batch, 128, 4, 4]
         self.dec_deconv = nn.Sequential(
-            nn.ConvTranspose2d(128, 128, 4, stride=2, padding=1),  # 8x8 <- 4x4
-            nn.ConvTranspose2d(128, 64, 4, stride=2, padding=1),   # 16x16 <- 8x8
-            nn.ConvTranspose2d(64, 32, 4, stride=2, padding=1),    # 32x32 <- 16x16
-            nn.Conv2d(32, 32, 3, stride=1, padding=1),             # 32x32
+            nn.ConvTranspose2d(128, 64, 4, stride=2, padding=1),  # 8x8 <- 4x4 [batch, 64, 8, 8]
+            nn.ReLU(),
+            nn.ConvTranspose2d(64, 32, 4, stride=2, padding=1),   # 16x16 <- 8x8 [batch, 32, 16, 16]
+            nn.ReLU(),
+            nn.ConvTranspose2d(32, 3, 4, stride=2, padding=1),    # 32x32 <- 16x16 [batch, 3, 32, 32]
         )
-        self.dec_deconv2 = nn.Conv2d(32, 3, 3, padding=1) # 32 -> 32 
 
     def encode(self, x):
+        # x [batch, 3, 32, 32]
         x = F.relu(self.enc_conv1(x))
         x = F.relu(self.enc_conv2(x))
         x = F.relu(self.enc_conv3(x))
@@ -33,7 +33,7 @@ class VAE(nn.Module):
         h = F.relu(self.enc_fc(x))
         mu = self.fc_mu(h)
         logvar = self.fc_logvar(h)
-        return mu, logvar
+        return mu, logvar # [batch, latent_dim]
 
     def reparameterize(self, mu, logvar):
         std = torch.exp(0.5*logvar)
@@ -41,22 +41,23 @@ class VAE(nn.Module):
         return mu + eps*std
 
     def decode(self, z):
+        # z [batch, latent_dim]
         h = F.relu(self.dec_fc1(z))
         h = F.relu(self.dec_fc2(h))
         h = F.relu(self.dec_fc3(h))
         h = h.view(-1, 128, 4, 4)
         h = F.relu(self.dec_deconv(h))
         x_recon = torch.sigmoid(self.dec_deconv2(h))
-        return x_recon
+        return x_recon # [batch, 3, 32, 32]
 
     def forward(self, x):
         mu, logvar = self.encode(x)
         z = self.reparameterize(mu, logvar)
         return self.decode(z), mu, logvar
 
-def vae_loss(x_reconstruction, x, mu, logvar, epoch=None, epochs=None, beta=1.0):
-    recon_loss = F.mse_loss(x_reconstruction, x, reduction="sum")
-    kl_loss = 0.5 * torch.sum(mu.pow(2) + logvar.exp() - logvar - 1)
+def vae_loss(x_reconstruction, x, mu, logvar, epoch=None, epochs=None, beta=0.00075):
+    recon_loss = F.mse_loss(x_reconstruction, x, reduction="mean")
+    kl_loss = 0.5 * torch.sum(mu.pow(2) + logvar.exp() - logvar - 1) / x.size(0)
 
     # KL Annealing
     if epoch is not None and epochs is not None:
@@ -64,9 +65,9 @@ def vae_loss(x_reconstruction, x, mu, logvar, epoch=None, epochs=None, beta=1.0)
     else:
         kl_weight = 1.0
 
-    total_loss = (recon_loss + kl_weight * kl_loss) / x.size(0)
-    recon_loss = recon_loss / x.size(0)
-    kl_loss = kl_loss / x.size(0)
+    total_loss = (recon_loss + kl_weight * kl_loss)
+    recon_loss = recon_loss
+    kl_loss = kl_loss
 
     return total_loss, recon_loss, kl_loss
     
