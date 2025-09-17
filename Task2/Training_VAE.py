@@ -5,6 +5,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
+from sklearn.manifold import TSNE
 
 from architectures import VAE, vae_loss
 
@@ -185,6 +186,39 @@ def visualise_reconstructions(model: VAE, dataloader, num_samples=16):
     plt.suptitle("VAE Reconstructions")
     plt.tight_layout()
     plt.savefig("VAE_Reconstructions.png", dpi=300, bbox_inches='tight')
+    plt.close()
+
+def extract_latents(model: VAE, dataloader):
+    model.eval()
+    latents = []
+    labels = []
+
+    with torch.no_grad():
+        for images, class_labels in dataloader:
+            images = images.to(device)
+            mu, logvar = model.encode(images)
+
+            latents.append(mu.cpu())
+            labels.append(class_labels.cpu())
+        latents = torch.cat(latents, dim=0).numpy()
+        labels = torch.cat(labels, dim=0).numpy()
+        return latents, labels
+
+def tsne_plot(latents, labels, num_samples=1000, perplexity=30):
+    if latents.shape[0] > num_samples:
+        idx = torch.randperm(latents.shape[0])[:num_samples]
+        latents = latents[idx]
+        labels = labels[idx]
+
+    tsne = TSNE(n_components=2, perplexity=perplexity, init='pca', random_state=69)
+
+    z_embed = tsne.fit_transform(latents)
+
+    plt.figure(figsize=(8, 6))
+    scatter = plt.scatter(z_embed[:, 0], z_embed[:, 1], c=labels, cmap="viridis", s=5, alpha=0.7)
+    plt.colorbar(scatter)
+    plt.title("t-SNE of VAE Latent Space")
+    plt.savefig("VAE_TSNE.png", dpi=300, bbox_inches='tight')
     plt.close()
 
 def main():
