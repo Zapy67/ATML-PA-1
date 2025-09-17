@@ -214,9 +214,17 @@ def tsne_plot(latents, labels, num_samples=1000, perplexity=30):
 
     z_embed = tsne.fit_transform(latents)
 
+    cifar10_classes = [
+        "airplane", "automobile", "bird", "cat", "deer",
+        "dog", "frog", "horse", "ship", "truck"
+    ]
+
     plt.figure(figsize=(8, 6))
-    scatter = plt.scatter(z_embed[:, 0], z_embed[:, 1], c=labels, cmap="viridis", s=5, alpha=0.7)
-    plt.colorbar(scatter)
+    scatter = plt.scatter(z_embed[:, 0], z_embed[:, 1], c=labels, cmap="tab10", s=5, alpha=0.7)
+    cbar = plt.colorbar(scatter, ticks=range(10))
+    cbar.ax.set_yticklabels(cifar10_classes)
+    cbar.set_label("CIFAR-10 Classes")
+
     plt.title("t-SNE of VAE Latent Space")
     plt.savefig("VAE_TSNE.png", dpi=300, bbox_inches='tight')
     plt.close()
