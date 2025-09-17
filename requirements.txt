@@ -1,0 +1,11 @@
+torch
+numpy
+torchvision
+pathlib
+matplotlib
+tqdm
+torchmetrics 
+ipykernel
+torchinfo
+sklearn
+seaborn
