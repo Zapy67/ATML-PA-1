@@ -15,7 +15,6 @@ class VAE(nn.Module):
 
         # Decoder
         self.dec_fc1 = nn.Linear(latent_dim, 128*4*4) # [batch, 2048]
-        self.reconv = nn.Unflatten(1, (128, 4, 4)) # [batch, 128, 4, 4]
         self.dec_deconv = nn.Sequential(
             nn.ConvTranspose2d(128, 64, 4, stride=2, padding=1),  # 8x8 <- 4x4 [batch, 64, 8, 8]
             nn.ReLU(),
@@ -43,11 +42,8 @@ class VAE(nn.Module):
     def decode(self, z):
         # z [batch, latent_dim]
         h = F.relu(self.dec_fc1(z))
-        h = F.relu(self.dec_fc2(h))
-        h = F.relu(self.dec_fc3(h))
         h = h.view(-1, 128, 4, 4)
-        h = F.relu(self.dec_deconv(h))
-        x_recon = torch.sigmoid(self.dec_deconv2(h))
+        x_recon = F.relu(self.dec_deconv(h))
         return x_recon # [batch, 3, 32, 32]
 
     def forward(self, x):
