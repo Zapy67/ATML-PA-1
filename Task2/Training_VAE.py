@@ -263,6 +263,10 @@ def main():
 
     visualise_reconstructions(model=model, dataloader=testloader)
 
+    print("=== Plotting t-SNE of Latent Space ===")
+    latents, labels = extract_latents(model=model, dataloader=testloader)
+    tsne_plot(latents, labels)
+
     # Save VAE Model
     torch.save(model.state_dict(), "vae_weights.pth")
 
