@@ -12,7 +12,6 @@ from architectures import GAN
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Constants
-latent_dim = 128
 img_channels = 3
 feat_maps = 32
 batch_size = 64
@@ -74,7 +73,7 @@ def show_generated(images, nrow=4):
     plt.savefig("GAN_Generations.png", dpi=300, bbox_inches='tight')
     plt.close()
 
-def main():
+def train_model(latent_dim=128):
     model = GAN(latent_dim, img_channels, feat_maps, batch_size).to(device=device)
 
     g_opt = optim.Adam(model.generator.parameters(), lr=lr_g, betas=betas)
@@ -107,6 +106,3 @@ def main():
 
     # Save GAN Model
     torch.save(model.state_dict(), "gan_weights.pth")
-
-if __name__ == "__main__":
-    main()
