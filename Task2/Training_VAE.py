@@ -17,17 +17,21 @@ epochs = 50
 lr = 1e-3
 betas = (0.6, 0.99)
 
-# Setting up Dataset
-transform = transforms.Compose([
-    transforms.ToTensor()
-])
 
-print("=== Downloading CIFAR-10 ===")
-trainset = CIFAR10(root="./data", train=True, download=True, transform=transform)
-testset = CIFAR10(root="./data", train=False, download=True, transform=transform)
+def prep_dataset():
+    # Setting up Dataset
+    transform = transforms.Compose([
+        transforms.ToTensor()
+    ])
 
-trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=2)
-testloader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=2)
+    print("=== Downloading CIFAR-10 ===")
+    trainset = CIFAR10(root="./data", train=True, download=True, transform=transform)
+    testset = CIFAR10(root="./data", train=False, download=True, transform=transform)
+
+    trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=2)
+    testloader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=2)
+
+    return trainloader, testloader
 
 # === Training VAE ===
 def train_vae_step(model: VAE, train_loader, optimizer: optim.Adam, epoch, epochs, kl_annealing=True, beta=1.0):
@@ -234,6 +238,8 @@ def train_model(latent_dim=128, kl_annealing=True):
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, betas=(0.9, 0.99))
     BETA = 0.00075
 
+    trainloader, testloader = prep_dataset()
+
     print("=== Training VAE ===")
     print(f"Model has {sum(p.numel() for p in model.parameters())} parameters")
     print(f"Training on {device}")
@@ -276,4 +282,9 @@ def train_model(latent_dim=128, kl_annealing=True):
     tsne_plot(latents, labels)
 
     # Save VAE Model
-    torch.save(model.state_dict(), "vae_weights.pth")
+    if kl_annealing: 
+        kl_annealed = 'kl_anneal_true'
+    else: 
+        kl_annealed = 'kl_anneal_false'
+    PATH = f"VAE_{latent_dim}_{kl_annealed}_weights.pth"
+    torch.save(model.state_dict(), PATH)

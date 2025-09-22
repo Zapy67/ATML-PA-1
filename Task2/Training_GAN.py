@@ -20,19 +20,22 @@ lr_g = 2e-4
 lr_d = 1e-4
 betas = (0.5, 0.999) 
 
-# Setting up Dataset
-transform = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.5, 0.5, 0.5],
-                         std=[0.5, 0.5, 0.5])
-])
+def prep_dataset():
+    # Setting up Dataset
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.5, 0.5, 0.5],
+                            std=[0.5, 0.5, 0.5])
+    ])
 
-print("=== Downloading CIFAR-10 ===")
-trainset = CIFAR10(root="./data", train=True, download=True, transform=transform)
-testset = CIFAR10(root="./data", train=False, download=True, transform=transform)
+    print("=== Downloading CIFAR-10 ===")
+    trainset = CIFAR10(root="./data", train=True, download=True, transform=transform)
+    testset = CIFAR10(root="./data", train=False, download=True, transform=transform)
 
-trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=2)
-testloader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=2)
+    trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=2)
+    testloader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=2)
+
+    return trainloader, testloader
 
 # === GAN Training ===
 # training loop
@@ -80,6 +83,8 @@ def train_model(latent_dim=128):
     d_opt = optim.Adam(model.discriminator.parameters(), lr=lr_d, betas=betas)
     loss_fn = nn.BCELoss()
 
+    trainloader, testloader = prep_dataset()
+
     print("=== Training GAN ===")
     print(f"Model has {sum(p.numel() for p in model.parameters())} parameters")
     print(f"Training on {device}")
@@ -105,4 +110,5 @@ def train_model(latent_dim=128):
         show_generated(generated)
 
     # Save GAN Model
-    torch.save(model.state_dict(), "gan_weights.pth")
+    PATH = f"GAN_{latent_dim}_weights.pth"
+    torch.save(model.state_dict(), PATH)
