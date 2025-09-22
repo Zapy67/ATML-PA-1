@@ -125,8 +125,6 @@ def train_model(save: bool = True):
     loss_fn = torch.nn.CrossEntropyLoss()
 
     model = resnet50(weights=ResNet50_Weights.IMAGENET1K_V2)
-    for p in model.parameters():
-        p.requires_grad = False
     
     train_loader, test_loader, classes = prep_dataset()
 
@@ -140,12 +138,12 @@ def train_model(save: bool = True):
         print("No pre-trained head found, starting fresh.")
 
     model = model.to(device)
-    optimizer = torch.optim.SGD(model.fc.parameters(), lr=1e-3, weight_decay=1e-5)
+    optimizer = torch.optim.SGD(model.parameters(), lr=1e-3, weight_decay=1e-5)
     num_params = sum([p.numel() for p in model.fc.parameters() if p.requires_grad])
 
     print(f"=== Num Params: {num_params} ===")
 
-    epochs = 10
+    epochs = 4
 
     train_losses, test_losses, train_accuracies, test_accuracies=train(train_loader,
                         test_loader,epochs, optimizer,  model, loss_fn, device)
@@ -165,7 +163,7 @@ def train_model(save: bool = True):
     print(classification_report(all_labels, all_preds, target_names=classes))
 
     if save:
-        torch.save(model.fc.state_dict(), "lin_classifier_head.pth")
+        torch.save(model.state_dict(), "lin_classifier_full.pth")
         return classes
     else:
         return model, classes
