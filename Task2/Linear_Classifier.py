@@ -131,6 +131,14 @@ def train_model(save: bool = True):
     train_loader, test_loader, classes = prep_dataset()
 
     model.fc = nn.Linear(model.fc.in_features, len(classes))
+
+    ckpt_path = "./models/lin_classifier_head.pth"
+    if os.path.exists(ckpt_path):
+        print(f"Loading classifier head from {ckpt_path} ...")
+        model.fc.load_state_dict(torch.load(ckpt_path, map_location=device))
+    else:
+        print("No pre-trained head found, starting fresh.")
+
     model = model.to(device)
     optimizer = torch.optim.SGD(model.fc.parameters(), lr=1e-3, weight_decay=1e-5)
     num_params = sum([p.numel() for p in model.fc.parameters() if p.requires_grad])
