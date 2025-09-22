@@ -5,6 +5,7 @@ import torch.nn.functional as F
 class VAE(nn.Module):
     def __init__(self, latent_dim=128):
         super(VAE, self).__init__()
+        self.latent_dim = latent_dim
         # Encoder
         self.enc_conv1 = nn.Conv2d(3, 32, 3, stride=2, padding=1) # 32x32 -> 16x16
         self.enc_conv2 = nn.Conv2d(32, 64, 3, stride=2, padding=1) # 16x16 -> 8x8
@@ -51,12 +52,12 @@ class VAE(nn.Module):
         z = self.reparameterize(mu, logvar)
         return self.decode(z), mu, logvar
 
-def vae_loss(x_reconstruction, x, mu, logvar, epoch=None, epochs=None, beta=0.00075):
+def vae_loss(x_reconstruction, x, mu, logvar, epoch=None, epochs=None, kl_annealing=True, beta=0.00075):
     recon_loss = F.mse_loss(x_reconstruction, x, reduction="mean")
     kl_loss = 0.5 * torch.sum(mu.pow(2) + logvar.exp() - logvar - 1) / x.size(0)
 
     # KL Annealing
-    if epoch is not None and epochs is not None:
+    if kl_annealing and (epoch is not None and epochs is not None):
         kl_weight = beta * epoch/epochs
     else:
         kl_weight = 1.0

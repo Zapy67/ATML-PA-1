@@ -30,7 +30,7 @@ trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_work
 testloader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=2)
 
 # === Training VAE ===
-def train_vae_step(model: VAE, train_loader, optimizer: optim.Adam, epoch, epochs, beta=1.0):
+def train_vae_step(model: VAE, train_loader, optimizer: optim.Adam, epoch, epochs, kl_annealing=True, beta=1.0):
     model.train()
     train_loss = 0
     train_recon_loss = 0
@@ -44,7 +44,7 @@ def train_vae_step(model: VAE, train_loader, optimizer: optim.Adam, epoch, epoch
         recon_data, mu, logvar = model(data)
 
         # Compute loss
-        loss, recon_loss, kl_loss = vae_loss(recon_data, data, mu, logvar, epoch, epochs, beta)
+        loss, recon_loss, kl_loss = vae_loss(recon_data, data, mu, logvar, epoch, epochs, kl_annealing, beta)
         # loss = vae_loss(recon_data, data, mu, logvar, epoch, epochs, beta)
 
         # Backward pass
@@ -71,7 +71,7 @@ def train_vae_step(model: VAE, train_loader, optimizer: optim.Adam, epoch, epoch
 
     return avg_loss, avg_recon_loss, avg_kl_loss
 
-def test_vae_step(model: VAE, test_loader, beta=1.0):
+def test_vae_step(model: VAE, test_loader, kl_annealing=True, beta=1.0):
     model.eval()
     test_loss = 0
     test_recon_loss = 0
@@ -81,7 +81,7 @@ def test_vae_step(model: VAE, test_loader, beta=1.0):
         for data, _ in test_loader:
             data = data.to(device)
             recon_data, mu, logvar = model(data)
-            loss, recon_loss, kl_loss = vae_loss(recon_data, data, mu, logvar, epoch=1, epochs=1, beta=beta)
+            loss, recon_loss, kl_loss = vae_loss(recon_data, data, mu, logvar, epoch=1, epochs=1, kl_annealing=kl_annealing, beta=beta)
             # loss = vae_loss(recon_data, data, mu, logvar, epoch=1, epochs=1, beta=beta)
             test_loss += loss.item()
             test_recon_loss += recon_loss.item()
@@ -96,15 +96,15 @@ def test_vae_step(model: VAE, test_loader, beta=1.0):
 
     return avg_loss, avg_recon_loss, avg_kl_loss
 
-def train_VAE(model: VAE, opt: optim.Adam, trainloader: DataLoader, testloader: DataLoader, epochs, beta=1.0):
+def train_VAE(model: VAE, opt: optim.Adam, trainloader: DataLoader, testloader: DataLoader, epochs, kl_annealing=True, beta=1.0):
     train_losses = []
     test_kl_losses = []
     test_recon_losses = []
     test_losses = []
 
     for epoch in range(1, epochs + 1):
-        train_loss, train_recon, train_kl = train_vae_step(model, trainloader, opt, epoch, epochs=epochs+1, beta=beta)
-        test_loss, test_recon, test_kl = test_vae_step(model, testloader, beta)
+        train_loss, train_recon, train_kl = train_vae_step(model, trainloader, opt, epoch, epochs=epochs+1, kl_annealing=kl_annealing, beta=beta)
+        test_loss, test_recon, test_kl = test_vae_step(model, testloader, kl_annealing, beta)
 
         train_losses.append(train_loss)
         test_kl_losses.append(test_kl)
@@ -229,8 +229,8 @@ def tsne_plot(latents, labels, num_samples=1000, perplexity=30):
     plt.savefig("VAE_TSNE.png", dpi=300, bbox_inches='tight')
     plt.close()
 
-def main():
-    model = VAE().to(device)
+def train_model(latent_dim=128, kl_annealing=True):
+    model = VAE(latent_dim).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, betas=(0.9, 0.99))
     BETA = 0.00075
 
@@ -239,7 +239,7 @@ def main():
     print(f"Training on {device}")
     print(f"Epochs: {epochs}")
 
-    train_losses, test_losses, test_kl_losses, test_recon_losses = train_VAE(model=model, opt=optimizer, trainloader=trainloader, testloader=testloader, epochs=epochs, beta=BETA)
+    train_losses, test_losses, test_kl_losses, test_recon_losses = train_VAE(model=model, opt=optimizer, trainloader=trainloader, testloader=testloader, epochs=epochs, kl_annealing=kl_annealing, beta=BETA)
 
     print("=== Plotting Loss Curves ===")
     plt.figure(figsize=(12, 5))
@@ -277,6 +277,3 @@ def main():
 
     # Save VAE Model
     torch.save(model.state_dict(), "vae_weights.pth")
-
-if __name__ == "__main__":
-    main()
