@@ -132,8 +132,8 @@ def train_model(save: bool = True):
 
     model.fc = nn.Linear(model.fc.in_features, len(classes))
     model = model.to(device)
-    optimizer = torch.optim.SGD(model.parameters(), lr=1e-3, weight_decay=1e-5)
-    num_params = sum([p.numel() for p in model.parameters() if p.requires_grad])
+    optimizer = torch.optim.SGD(model.fc.parameters(), lr=1e-3, weight_decay=1e-5)
+    num_params = sum([p.numel() for p in model.fc.parameters() if p.requires_grad])
 
     print(f"=== Num Params: {num_params} ===")
 
