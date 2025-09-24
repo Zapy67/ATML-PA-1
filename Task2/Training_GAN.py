@@ -73,7 +73,7 @@ def train_GAN(model: GAN, g_opt: optim.Adam, d_opt: optim.Adam, loss_fn: nn.BCEL
 
 def show_generated(images, basic_str, latent_dim, nrow=4, save=True):
     """Display generated images in a grid."""
-    grid = torchvision.utils.make_grid(images, nrow=4, normalize=True)
+    grid = torchvision.utils.make_grid(images, nrow=nrow, normalize=True)
     plt.figure(figsize=(6,6))
     plt.axis("off")
     plt.imshow(grid.permute(1, 2, 0))

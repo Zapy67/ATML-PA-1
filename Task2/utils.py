@@ -164,7 +164,7 @@ class GAN_FID:
 
         with torch.no_grad():
             for _ in range(self.num_fake // self.batch_size):
-                z = torch.randn(self.batch_size, self.latent_dim, device=self.device)
+                z = torch.randn(self.batch_size, self.latent_dim, 1, 1, device=self.device)
                 fake_imgs = self.GAN.generate(z)
 
                 # Rescale from [-1,1] → [0,255]
