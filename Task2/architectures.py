@@ -59,7 +59,6 @@ def vae_loss(x_reconstruction, x, mu, logvar, epoch=None, epochs=None, kl_anneal
     # KL Annealing
     if kl_annealing:
         kl_weight = beta * min(1.0, 2*epoch/epochs)
-
     else:
         kl_weight = 1.0
 
