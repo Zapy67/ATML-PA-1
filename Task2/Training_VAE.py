@@ -125,7 +125,7 @@ def visualize_gaussian_generations(model, latent_dim, kl_annealed, num_samples =
         """Generate new samples by sampling from the prior p(z) = N(0, I)"""
         model.eval()
         with torch.no_grad():
-            z = torch.randn(num_samples, 128).to(device)
+            z = torch.randn(num_samples, latent_dim).to(device)
             samples = model.decode(z)
         return samples
 
