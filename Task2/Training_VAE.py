@@ -31,7 +31,7 @@ def prep_dataset():
     trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=2)
     testloader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=2)
 
-    return trainloader, testloader
+    return trainloader, testloader, trainset.classes
 
 # === Training VAE ===
 def train_vae_step(model: VAE, train_loader, optimizer: optim.Adam, epoch, epochs, kl_annealing=True, beta=1.0):
@@ -220,7 +220,7 @@ def extract_latents(model: VAE, dataloader):
         labels = torch.cat(labels, dim=0).numpy()
         return latents, labels
 
-def tsne_plot(latents, labels, latent_dim, kl_annealed, num_samples=1000, perplexity=30):
+def tsne_plot(latents, labels, classes, latent_dim, kl_annealed, num_samples=1000, perplexity=30):
     if latents.shape[0] > num_samples:
         idx = torch.randperm(latents.shape[0])[:num_samples]
         latents = latents[idx]
@@ -230,10 +230,7 @@ def tsne_plot(latents, labels, latent_dim, kl_annealed, num_samples=1000, perple
 
     z_embed = tsne.fit_transform(latents)
 
-    cifar10_classes = [
-        "airplane", "automobile", "bird", "cat", "deer",
-        "dog", "frog", "horse", "ship", "truck"
-    ]
+    cifar10_classes = classes
 
     plt.figure(figsize=(8, 6))
     scatter = plt.scatter(z_embed[:, 0], z_embed[:, 1], c=labels, cmap="tab10", s=5, alpha=0.7)
@@ -251,7 +248,7 @@ def train_model(latent_dim=128, kl_annealing=True):
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, betas=(0.9, 0.99))
     BETA = 0.00075
 
-    trainloader, testloader = prep_dataset()
+    trainloader, testloader, classes = prep_dataset()
 
     print("=== Training VAE ===")
     print(f"Model has {sum(p.numel() for p in model.parameters())} parameters")
@@ -297,7 +294,7 @@ def train_model(latent_dim=128, kl_annealing=True):
 
     print("=== Plotting t-SNE of Latent Space ===")
     latents, labels = extract_latents(model=model, dataloader=testloader)
-    tsne_plot(latents, labels, latent_dim=latent_dim, kl_annealed=kl_annealed)
+    tsne_plot(latents, labels, classes, latent_dim=latent_dim, kl_annealed=kl_annealed)
 
     # Save VAE Model
     PATH = f"VAE_{latent_dim}_{kl_annealed}_weights.pth"
