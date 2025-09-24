@@ -117,7 +117,7 @@ def train_VAE(model: VAE, opt: optim.Adam, trainloader: DataLoader, testloader: 
 
     return train_losses, test_losses, test_kl_losses, test_recon_losses
 
-def visualize_gaussian_generations(model, num_samples = 16):
+def visualize_gaussian_generations(model, latent_dim, kl_annealed, num_samples = 16):
     """Visualize generated samples"""
     import math
 
@@ -150,10 +150,10 @@ def visualize_gaussian_generations(model, num_samples = 16):
 
     plt.suptitle("Generated Samples (Gaussian Prior)")
     plt.tight_layout()
-    plt.savefig("VAE_Generations_Base_Training.png", dpi=300, bbox_inches='tight')
+    plt.savefig(f"VAE_Generations_Base_Training_{latent_dim}_{kl_annealed}.png", dpi=300, bbox_inches='tight')
     plt.close()
 
-def visualise_reconstructions(model: VAE, dataloader, num_samples=16):
+def visualise_reconstructions(model: VAE, dataloader, latent_dim, kl_annealed, num_samples=16):
     import math
     model.eval()
 
@@ -189,7 +189,7 @@ def visualise_reconstructions(model: VAE, dataloader, num_samples=16):
 
     plt.suptitle("VAE Reconstructions")
     plt.tight_layout()
-    plt.savefig("VAE_Reconstructions.png", dpi=300, bbox_inches='tight')
+    plt.savefig(f"VAE_Reconstructions_{latent_dim}_{kl_annealed}.png", dpi=300, bbox_inches='tight')
     plt.close()
 
 def extract_latents(model: VAE, dataloader):
@@ -208,7 +208,7 @@ def extract_latents(model: VAE, dataloader):
         labels = torch.cat(labels, dim=0).numpy()
         return latents, labels
 
-def tsne_plot(latents, labels, num_samples=1000, perplexity=30):
+def tsne_plot(latents, labels, latent_dim, kl_annealed, num_samples=1000, perplexity=30):
     if latents.shape[0] > num_samples:
         idx = torch.randperm(latents.shape[0])[:num_samples]
         latents = latents[idx]
@@ -230,7 +230,7 @@ def tsne_plot(latents, labels, num_samples=1000, perplexity=30):
     cbar.set_label("CIFAR-10 Classes")
 
     plt.title("t-SNE of VAE Latent Space")
-    plt.savefig("VAE_TSNE.png", dpi=300, bbox_inches='tight')
+    plt.savefig(f"VAE_TSNE_{latent_dim}_{kl_annealed}.png", dpi=300, bbox_inches='tight')
     plt.close()
 
 def train_model(latent_dim=128, kl_annealing=True):
@@ -246,6 +246,11 @@ def train_model(latent_dim=128, kl_annealing=True):
     print(f"Epochs: {epochs}")
 
     train_losses, test_losses, test_kl_losses, test_recon_losses = train_VAE(model=model, opt=optimizer, trainloader=trainloader, testloader=testloader, epochs=epochs, kl_annealing=kl_annealing, beta=BETA)
+
+    if kl_annealing: 
+        kl_annealed = 'kl_anneal_true'
+    else: 
+        kl_annealed = 'kl_anneal_false'
 
     print("=== Plotting Loss Curves ===")
     plt.figure(figsize=(12, 5))
@@ -269,22 +274,18 @@ def train_model(latent_dim=128, kl_annealing=True):
     plt.legend()
 
     plt.tight_layout()
-    plt.savefig("VAE_Training_Losses.png", dpi=300, bbox_inches='tight')
+    plt.savefig(f"VAE_Training_Losses_{latent_dim}_{kl_annealed}.png", dpi=300, bbox_inches='tight')
     plt.close()
 
     print("=== Plotting Generated Samples And Reconstructions ===")
-    visualize_gaussian_generations(model=model)
+    visualize_gaussian_generations(model=model, latent_dim=latent_dim, kl_annealed=kl_annealed)
 
-    visualise_reconstructions(model=model, dataloader=testloader)
+    visualise_reconstructions(model=model, dataloader=testloader, latent_dim=latent_dim, kl_annealed=kl_annealed)
 
     print("=== Plotting t-SNE of Latent Space ===")
     latents, labels = extract_latents(model=model, dataloader=testloader)
-    tsne_plot(latents, labels)
+    tsne_plot(latents, labels, latent_dim=latent_dim, kl_annealed=kl_annealed)
 
     # Save VAE Model
-    if kl_annealing: 
-        kl_annealed = 'kl_anneal_true'
-    else: 
-        kl_annealed = 'kl_anneal_false'
     PATH = f"VAE_{latent_dim}_{kl_annealed}_weights.pth"
     torch.save(model.state_dict(), PATH)
