@@ -246,7 +246,7 @@ def tsne_plot(latents, labels, classes, latent_dim, kl_annealed, num_samples=100
 def train_model(latent_dim=128, kl_annealing=True):
     model = VAE(latent_dim).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, betas=(0.9, 0.99))
-    BETA = 0.00075
+    BETA = 0.75
 
     trainloader, testloader, classes = prep_dataset()
 
