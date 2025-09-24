@@ -12,7 +12,7 @@ from architectures import VAE, vae_loss
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Constants
-batch_size = 64
+batch_size = 128
 epochs = 50
 lr = 1e-3
 betas = (0.6, 0.99)

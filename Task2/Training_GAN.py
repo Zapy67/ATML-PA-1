@@ -14,7 +14,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 # Constants
 img_channels = 3
 feat_maps = 32
-batch_size = 64
+batch_size = 128
 epochs = 40
 lr_g = 2e-4
 lr_d = 1e-4
