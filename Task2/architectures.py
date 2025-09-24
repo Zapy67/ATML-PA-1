@@ -53,13 +53,14 @@ class VAE(nn.Module):
         return self.decode(z), mu, logvar
 
 def vae_loss(x_reconstruction, x, mu, logvar, epoch=None, epochs=None, kl_annealing=True, beta=0.0075):
-    import math
+    import numpy as np
     recon_loss = F.mse_loss(x_reconstruction, x, reduction="sum") / x.size(0)
     kl_loss = 0.5 * torch.sum(mu.pow(2) + logvar.exp() - logvar - 1) / x.size(0)
 
     # KL Annealing
     if kl_annealing:
-        kl_weight = beta * math.min(1.0, 2*epoch/epochs)
+        kl_weight = beta * np.min(1.0, 2*epoch/epochs)
+
     else:
         kl_weight = 1.0
 
