@@ -39,7 +39,7 @@ def prep_dataset():
 
 # === GAN Training ===
 # training loop
-def train_GAN(model: GAN, g_opt: optim.Adam, d_opt: optim.Adam, loss_fn: nn.BCELoss, dataloader: DataLoader, epochs):
+def train_GAN(model: GAN, g_opt: optim.Adam, d_opt: optim.Adam, loss_fn: nn.BCELoss, dataloader: DataLoader, epochs, basic=False):
     model.generator.train()
     model.discriminator.train()
 
@@ -52,7 +52,7 @@ def train_GAN(model: GAN, g_opt: optim.Adam, d_opt: optim.Adam, loss_fn: nn.BCEL
         for (real_imgs, _) in dataloader:
             real_imgs = real_imgs.to(device)
 
-            d_loss, g_loss = model.train_step(real_imgs, loss_fn=loss_fn, g_opt=g_opt, d_opt=d_opt, epoch=epoch)
+            d_loss, g_loss = model.train_step(real_imgs, loss_fn=loss_fn, g_opt=g_opt, d_opt=d_opt, epoch=epoch, basic=basic)
 
             g_losses.append(g_loss)
             d_losses.append(d_loss)
@@ -67,16 +67,16 @@ def train_GAN(model: GAN, g_opt: optim.Adam, d_opt: optim.Adam, loss_fn: nn.BCEL
 
     return all_g_losses, all_d_losses
 
-def show_generated(images, nrow=4):
+def show_generated(images, basic_str, latent_dim, nrow=4):
     """Display generated images in a grid."""
     grid = torchvision.utils.make_grid(images, nrow=4, normalize=True)
     plt.figure(figsize=(6,6))
     plt.axis("off")
     plt.imshow(grid.permute(1, 2, 0))
-    plt.savefig("GAN_Generations.png", dpi=300, bbox_inches='tight')
+    plt.savefig(f"GAN_Generations_{basic_str}_{latent_dim}.png", dpi=300, bbox_inches='tight')
     plt.close()
 
-def train_model(latent_dim=128):
+def train_model(latent_dim=128, basic=False):
     model = GAN(latent_dim, img_channels, feat_maps, batch_size).to(device=device)
 
     g_opt = optim.Adam(model.generator.parameters(), lr=lr_g, betas=betas)
@@ -90,7 +90,9 @@ def train_model(latent_dim=128):
     print(f"Training on {device}")
     print(f"Epochs: {epochs}")
 
-    g_losses, d_losses = train_GAN(model=model, g_opt=g_opt, d_opt=d_opt, loss_fn=loss_fn, dataloader=trainloader, epochs=epochs)
+    g_losses, d_losses = train_GAN(model=model, g_opt=g_opt, d_opt=d_opt, loss_fn=loss_fn, dataloader=trainloader, epochs=epochs, basic=basic)
+
+    basic_str = "basic" if basic else "adv"
 
     print("=== Plotting Loss Curves ===")
     plt.plot(g_losses, label='Generator Loss')
@@ -100,15 +102,15 @@ def train_model(latent_dim=128):
     plt.legend()
     plt.title('GAN Training Losses')
 
-    plt.savefig("GAN_Training_Losses.png", dpi=300, bbox_inches='tight')
+    plt.savefig(f"GAN_Training_Losses_{basic_str}_{latent_dim}.png", dpi=300, bbox_inches='tight')
     plt.close()
 
     print("=== Plotting Generated Samples ===")
     fixed_noise = torch.randn(16, latent_dim, 1, 1, device=device)
     with torch.no_grad():
         generated = model.generate(fixed_noise).cpu()
-        show_generated(generated)
+        show_generated(generated, basic_str, latent_dim)
 
     # Save GAN Model
-    PATH = f"GAN_{latent_dim}_weights.pth"
+    PATH = f"GAN_{basic_str}_{latent_dim}_weights.pth"
     torch.save(model.state_dict(), PATH)

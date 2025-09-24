@@ -64,9 +64,6 @@ class LinearInterpolator:
         plt.close(fig)
         return HTML(ani.to_html5_video())
 
-class GANPCA:
-    pass
-
 class GAN_Inversion:
     """
     GAN_Inversion performs inversion of real images into a GAN’s
@@ -97,7 +94,16 @@ class GAN_Inversion:
     and the GAN’s imagination space, enabling reconstruction and
     controllable editing.
     """
-    pass
+    def __init__(self, model: GAN):
+        self.model = model
+        pass
+
+    def reconstruct(self, image):
+        """
+        Uses optimization to reconstruct image, probing into latent, then using some similarity metric/Loss to converge to correct Latent
+        Should return original image, reconstruction, and the latent of the reconstruction.
+        """
+        pass
 
 class GAN_FID:
     """

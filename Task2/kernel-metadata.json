@@ -1,0 +1,10 @@
+{
+  "id": "vanastrearein/ATML-Task-2",
+  "title": "ATML-Task-2",
+  "code_file": "Task_2.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": false
+}

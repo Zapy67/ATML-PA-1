@@ -123,10 +123,11 @@ class GAN(nn.Module):
         return self.generate(z)
 
     def train_step(self, x, loss_fn, g_opt, d_opt,
-                   epoch=None, sigma_start=0.05, sigma_end=0.01, anneal_epochs=30):
+                   epoch=None, sigma_start=0.05, sigma_end=0.01, anneal_epochs=30, basic=False):
         batch_size = x.size(0)
 
-        # === Noise schedule (annealed) ===
+        # === Noise schedule (annealed) ===s
+
         if epoch is not None:
             t = min(epoch, anneal_epochs) / max(1, anneal_epochs)
             sigma = sigma_start * (1 - t) + sigma_end * t
@@ -141,7 +142,7 @@ class GAN(nn.Module):
         x_hat = self.forward(z)
 
         # Add lil bit of noise to real & fake before discrimination
-        if sigma > 0:
+        if not basic and sigma > 0:
             x = x + sigma * torch.randn_like(x)
             x_hat = x_hat.detach() + sigma * torch.randn_like(x_hat)
 
@@ -153,9 +154,14 @@ class GAN(nn.Module):
 
         out_real, out_fake = self.discriminate(x), self.discriminate(x_hat) # detach so G isn't updated here
 
-        # Real labels = 1, Fake labels = 0
-        real_labels = torch.full((batch_size,), 0.9, device=x.device)
-        fake_labels = torch.zeros_like(out_fake)
+        if basic:
+            real_labels = torch.ones_like(out_real, device=x.device)
+            fake_labels = torch.zeros_like(out_fake, device=x.device)
+        else:
+            # Label smoothing: real=0.9
+            real_labels = torch.full((batch_size,), 0.9, device=x.device)
+            fake_labels = torch.zeros_like(out_fake)
+
 
         d_real_loss = loss_fn(out_real, real_labels)
         d_fake_loss = loss_fn(out_fake, fake_labels)
@@ -172,7 +178,11 @@ class GAN(nn.Module):
         z = torch.randn(batch_size, self.latent_dim, 1, 1, device=x.device)
         fake_imgs = self.generate(z)
         out_fake_g = self.discriminate(fake_imgs)
-        loss_g = loss_fn(out_fake_g, real_labels)
+        if basic:
+            target_labels = torch.ones_like(out_fake_g, device=x.device)
+        else:
+            target_labels = torch.full((batch_size,), 0.9, device=x.device)
+        loss_g = loss_fn(out_fake_g, target_labels)
 
         loss_g.backward()
         g_opt.step()
