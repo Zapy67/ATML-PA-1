@@ -115,9 +115,13 @@ def train_VAE(model: VAE, opt: optim.Adam, trainloader: DataLoader, testloader: 
         test_recon_losses.append(test_recon)
         test_losses.append(test_loss)
 
+        if epoch % 10 == 0:
+            visualize_gaussian_generations(model=model, latent_dim=model.latent_dim, kl_annealed='', save=False)
+            visualise_reconstructions(model=model, dataloader=testloader, latent_dim=model.latent_dim, kl_annealed='', save=False)
+
     return train_losses, test_losses, test_kl_losses, test_recon_losses
 
-def visualize_gaussian_generations(model, latent_dim, kl_annealed, num_samples = 16):
+def visualize_gaussian_generations(model, latent_dim, kl_annealed, num_samples = 16, save=True):
     """Visualize generated samples"""
     import math
 
@@ -150,10 +154,14 @@ def visualize_gaussian_generations(model, latent_dim, kl_annealed, num_samples =
 
     plt.suptitle("Generated Samples (Gaussian Prior)")
     plt.tight_layout()
-    plt.savefig(f"VAE_Generations_Base_Training_{latent_dim}_{kl_annealed}.png", dpi=300, bbox_inches='tight')
-    plt.close()
 
-def visualise_reconstructions(model: VAE, dataloader, latent_dim, kl_annealed, num_samples=16):
+    if save:
+        plt.savefig(f"VAE_Generations_Base_Training_{latent_dim}_{kl_annealed}.png", dpi=300, bbox_inches='tight')
+        plt.close()
+    else:
+        plt.show()
+
+def visualise_reconstructions(model: VAE, dataloader, latent_dim, kl_annealed, num_samples=16, save=True):
     import math
     model.eval()
 
@@ -189,8 +197,12 @@ def visualise_reconstructions(model: VAE, dataloader, latent_dim, kl_annealed, n
 
     plt.suptitle("VAE Reconstructions")
     plt.tight_layout()
-    plt.savefig(f"VAE_Reconstructions_{latent_dim}_{kl_annealed}.png", dpi=300, bbox_inches='tight')
-    plt.close()
+
+    if save:
+        plt.savefig(f"VAE_Reconstructions_{latent_dim}_{kl_annealed}.png", dpi=300, bbox_inches='tight')
+        plt.close()
+    else:
+        plt.show()
 
 def extract_latents(model: VAE, dataloader):
     model.eval()
@@ -231,6 +243,7 @@ def tsne_plot(latents, labels, latent_dim, kl_annealed, num_samples=1000, perple
 
     plt.title("t-SNE of VAE Latent Space")
     plt.savefig(f"VAE_TSNE_{latent_dim}_{kl_annealed}.png", dpi=300, bbox_inches='tight')
+    plt.show()
     plt.close()
 
 def train_model(latent_dim=128, kl_annealing=True):

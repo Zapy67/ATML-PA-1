@@ -64,17 +64,23 @@ def train_GAN(model: GAN, g_opt: optim.Adam, d_opt: optim.Adam, loss_fn: nn.BCEL
         all_d_losses.append(epoch_d_loss)
 
         print(f"Epoch [{epoch+1}/{epochs}]  D_loss: {epoch_d_loss:.4f}  G_loss: {epoch_g_loss:.4f}")
+        noise = torch.randn(16, model.latent_dim, 1, 1, device=model.device)
+        generated = model.generate(noise).cpu()
+        show_generated(generated, '', model.latent_dim, save=False)
 
     return all_g_losses, all_d_losses
 
-def show_generated(images, basic_str, latent_dim, nrow=4):
+def show_generated(images, basic_str, latent_dim, nrow=4, save=True):
     """Display generated images in a grid."""
     grid = torchvision.utils.make_grid(images, nrow=4, normalize=True)
     plt.figure(figsize=(6,6))
     plt.axis("off")
     plt.imshow(grid.permute(1, 2, 0))
-    plt.savefig(f"GAN_Generations_{basic_str}_{latent_dim}.png", dpi=300, bbox_inches='tight')
-    plt.close()
+    if save:
+        plt.savefig(f"GAN_Generations_{basic_str}_{latent_dim}.png", dpi=300, bbox_inches='tight')
+        plt.close()
+    else:
+        plt.show()
 
 def train_model(latent_dim=128, basic=False):
     model = GAN(latent_dim, img_channels, feat_maps, batch_size).to(device=device)
@@ -106,9 +112,9 @@ def train_model(latent_dim=128, basic=False):
     plt.close()
 
     print("=== Plotting Generated Samples ===")
-    fixed_noise = torch.randn(16, latent_dim, 1, 1, device=device)
+    noise = torch.randn(16, latent_dim, 1, 1, device=device)
     with torch.no_grad():
-        generated = model.generate(fixed_noise).cpu()
+        generated = model.generate(noise).cpu()
         show_generated(generated, basic_str, latent_dim)
 
     # Save GAN Model
