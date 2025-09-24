@@ -64,7 +64,7 @@ def train_GAN(model: GAN, g_opt: optim.Adam, d_opt: optim.Adam, loss_fn: nn.BCEL
         all_d_losses.append(epoch_d_loss)
 
         print(f"Epoch [{epoch+1}/{epochs}]  D_loss: {epoch_d_loss:.4f}  G_loss: {epoch_g_loss:.4f}")
-        noise = torch.randn(16, model.latent_dim, 1, 1, device=model.device)
+        noise = torch.randn(16, model.latent_dim, 1, 1, device=device)
         generated = model.generate(noise).cpu()
         show_generated(generated, '', model.latent_dim, save=False)
 
