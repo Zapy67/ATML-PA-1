@@ -198,7 +198,7 @@ class GAN(nn.Module):
             _, fake_feats = self.discriminate(fake_imgs, return_feats=True)
 
             # match mean feature activations
-            loss_g = 0.6 * loss_g + 0.4 * torch.mean((real_feats.mean(dim=0) - fake_feats.mean(dim=0)) ** 2)
+            loss_g = 0.7 * loss_g + 0.3 * torch.mean((real_feats.mean(dim=0) - fake_feats.mean(dim=0)) ** 2)
 
         loss_g.backward()
         g_opt.step()
