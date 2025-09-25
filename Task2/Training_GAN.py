@@ -6,40 +6,44 @@ from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 import torchvision
+from itertools import chain
 
 from architectures import GAN
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Constants
-latent_dim = 128
 img_channels = 3
 feat_maps = 32
-batch_size = 64
+batch_size = 128
 epochs = 40
 lr_g = 2e-4
 lr_d = 1e-4
 betas = (0.5, 0.999) 
 
-# Setting up Dataset
-transform = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.5, 0.5, 0.5],
-                         std=[0.5, 0.5, 0.5])
-])
+def prep_dataset():
+    # Setting up Dataset
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.5, 0.5, 0.5],
+                            std=[0.5, 0.5, 0.5])
+    ])
 
-print("=== Downloading CIFAR-10 ===")
-trainset = CIFAR10(root="./data", train=True, download=True, transform=transform)
-testset = CIFAR10(root="./data", train=False, download=True, transform=transform)
+    print("=== Downloading CIFAR-10 ===")
+    trainset = CIFAR10(root="./data", train=True, download=True, transform=transform)
+    testset = CIFAR10(root="./data", train=False, download=True, transform=transform)
 
-trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=2)
-testloader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=2)
+    trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=2)
+    testloader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=2)
+
+    return trainloader, testloader
 
 # === GAN Training ===
 # training loop
-def train_GAN(model: GAN, g_opt: optim.Adam, d_opt: optim.Adam, loss_fn: nn.BCELoss, dataloader: DataLoader, epochs):
+def train_GAN(model: GAN, g_opt: optim.Adam, d_opt: optim.Adam, loss_fn: nn.BCELoss, dataloader: DataLoader, epochs, basic=False):
     model.generator.train()
-    model.discriminator.train()
+    model.disc_features.train()
+    model.disc_head.train()
 
     all_g_losses = []
     all_d_losses = []
@@ -50,7 +54,7 @@ def train_GAN(model: GAN, g_opt: optim.Adam, d_opt: optim.Adam, loss_fn: nn.BCEL
         for (real_imgs, _) in dataloader:
             real_imgs = real_imgs.to(device)
 
-            d_loss, g_loss = model.train_step(real_imgs, loss_fn=loss_fn, g_opt=g_opt, d_opt=d_opt, epoch=epoch)
+            d_loss, g_loss = model.train_step(real_imgs, loss_fn=loss_fn, g_opt=g_opt, d_opt=d_opt, epoch=epoch, basic=basic)
 
             g_losses.append(g_loss)
             d_losses.append(d_loss)
@@ -62,31 +66,46 @@ def train_GAN(model: GAN, g_opt: optim.Adam, d_opt: optim.Adam, loss_fn: nn.BCEL
         all_d_losses.append(epoch_d_loss)
 
         print(f"Epoch [{epoch+1}/{epochs}]  D_loss: {epoch_d_loss:.4f}  G_loss: {epoch_g_loss:.4f}")
+        if epoch % 10 == 0:
+            noise = torch.randn(16, model.latent_dim, 1, 1, device=device)
+            generated = model.generate(noise).cpu()
+            show_generated(generated, '', model.latent_dim, save=False)
 
     return all_g_losses, all_d_losses
 
-def show_generated(images, nrow=4):
+def show_generated(images, basic_str, latent_dim, nrow=4, save=True):
     """Display generated images in a grid."""
-    grid = torchvision.utils.make_grid(images, nrow=4, normalize=True)
-    plt.figure(figsize=(6,6))
+    grid = torchvision.utils.make_grid(images, nrow=nrow, normalize=True)
+    plt.figure(figsize=(10,10))
     plt.axis("off")
     plt.imshow(grid.permute(1, 2, 0))
-    plt.savefig("GAN_Generations.png", dpi=300, bbox_inches='tight')
-    plt.close()
+    if save:
+        plt.savefig(f"GAN_Generations_{basic_str}_{latent_dim}.png", dpi=300, bbox_inches='tight')
+        plt.close()
+    else:
+        plt.show()
 
-def main():
-    model = GAN(latent_dim, img_channels, feat_maps, batch_size).to(device=device)
+def train_model(latent_dim=128, basic=False):
+    model = GAN(latent_dim, img_channels, feat_maps, batch_size, basic=basic).to(device=device)
 
-    g_opt = optim.Adam(model.generator.parameters(), lr=lr_g, betas=betas)
-    d_opt = optim.Adam(model.discriminator.parameters(), lr=lr_d, betas=betas)
+    if not basic:
+        g_opt = optim.Adam(model.generator.parameters(), lr=lr_g, betas=betas)
+        d_opt = optim.Adam(chain(model.disc_features.parameters(), model.disc_head.parameters()), lr=lr_g, betas=betas)
+    else:
+        g_opt = optim.Adam(model.generator.parameters(), lr=lr_g, betas=betas)
+        d_opt = optim.Adam(chain(model.disc_features.parameters(), model.disc_head.parameters()), lr=lr_d, betas=betas)
     loss_fn = nn.BCELoss()
+
+    trainloader, testloader = prep_dataset()
 
     print("=== Training GAN ===")
     print(f"Model has {sum(p.numel() for p in model.parameters())} parameters")
     print(f"Training on {device}")
     print(f"Epochs: {epochs}")
 
-    g_losses, d_losses = train_GAN(model=model, g_opt=g_opt, d_opt=d_opt, loss_fn=loss_fn, dataloader=trainloader, epochs=epochs)
+    g_losses, d_losses = train_GAN(model=model, g_opt=g_opt, d_opt=d_opt, loss_fn=loss_fn, dataloader=trainloader, epochs=epochs, basic=basic)
+
+    basic_str = "basic" if basic else "adv"
 
     print("=== Plotting Loss Curves ===")
     plt.plot(g_losses, label='Generator Loss')
@@ -96,17 +115,15 @@ def main():
     plt.legend()
     plt.title('GAN Training Losses')
 
-    plt.savefig("GAN_Training_Losses.png", dpi=300, bbox_inches='tight')
+    plt.savefig(f"GAN_Training_Losses_{basic_str}_{latent_dim}.png", dpi=300, bbox_inches='tight')
     plt.close()
 
     print("=== Plotting Generated Samples ===")
-    fixed_noise = torch.randn(16, latent_dim, 1, 1, device=device)
+    noise = torch.randn(16, latent_dim, 1, 1, device=device)
     with torch.no_grad():
-        generated = model.generate(fixed_noise).cpu()
-        show_generated(generated)
+        generated = model.generate(noise).cpu()
+        show_generated(generated, basic_str, latent_dim)
 
     # Save GAN Model
-    torch.save(model.state_dict(), "gan_weights.pth")
-
-if __name__ == "__main__":
-    main()
+    PATH = f"GAN_{basic_str}_{latent_dim}_weights.pth"
+    torch.save(model.state_dict(), PATH)

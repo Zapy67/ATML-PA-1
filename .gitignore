@@ -211,3 +211,5 @@ data/
 datasets/
 *.zip
 *.tar.gz
+
+lin_classifier_full.pth
