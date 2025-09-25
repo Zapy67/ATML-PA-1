@@ -86,7 +86,7 @@ def show_generated(images, basic_str, latent_dim, nrow=4, save=True):
         plt.show()
 
 def train_model(latent_dim=128, basic=False, lr_same=False):
-    model = GAN(latent_dim, img_channels, feat_maps, batch_size).to(device=device)
+    model = GAN(latent_dim, img_channels, feat_maps, batch_size, basic=basic).to(device=device)
 
     if lr_same:
         g_opt = optim.Adam(model.generator.parameters(), lr=lr_g, betas=betas)
