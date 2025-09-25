@@ -69,6 +69,7 @@ class LinearInterpolator:
 
 import torchvision.models as models
 import torch.optim as optim
+import torch.nn.functional as F
 
 class GAN_Inversion:
     """
@@ -240,7 +241,7 @@ class GAN_Inversion:
                 last_print = step
 
         # Final outputs
-        with torch.no_grad():
+        with torch.inference_mode():
             recon = self.model.generate(z).clamp(-1.0, 1.0)
 
         logs['pixel_loss'] = pixel_loss.item()

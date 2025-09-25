@@ -42,7 +42,8 @@ def prep_dataset():
 # training loop
 def train_GAN(model: GAN, g_opt: optim.Adam, d_opt: optim.Adam, loss_fn: nn.BCELoss, dataloader: DataLoader, epochs, basic=False):
     model.generator.train()
-    model.discriminator.train()
+    model.disc_features.train()
+    model.disc_head.train()
 
     all_g_losses = []
     all_d_losses = []
