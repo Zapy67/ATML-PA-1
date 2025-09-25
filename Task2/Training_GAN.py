@@ -85,10 +85,10 @@ def show_generated(images, basic_str, latent_dim, nrow=4, save=True):
     else:
         plt.show()
 
-def train_model(latent_dim=128, basic=False, lr_same=False):
+def train_model(latent_dim=128, basic=False):
     model = GAN(latent_dim, img_channels, feat_maps, batch_size, basic=basic).to(device=device)
 
-    if lr_same:
+    if not basic:
         g_opt = optim.Adam(model.generator.parameters(), lr=lr_g, betas=betas)
         d_opt = optim.Adam(chain(model.disc_features.parameters(), model.disc_head.parameters()), lr=lr_g, betas=betas)
     else:
