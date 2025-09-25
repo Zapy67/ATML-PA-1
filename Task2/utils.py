@@ -54,6 +54,7 @@ class LinearInterpolator:
             if isinstance(self.model, VAE):
                 decoded = self.model.decode(latent_codes).reshape(-1, 3, 32, 32).cpu()
             else:
+                latent_codes = latent_codes.view(latent_codes.size(0), latent_codes.size(1), 1, 1)
                 decoded = self.model.generate(latent_codes).reshape(-1, 3, 32, 32).cpu()
 
         decoded = decoded.permute(0, 2, 3, 1)
@@ -62,7 +63,12 @@ class LinearInterpolator:
         ims = [[ax.imshow(im, animated=True)] for im in decoded.numpy()]
         ani = animation.ArtistAnimation(fig, ims, interval=50, blit=True,repeat_delay=1000)
         plt.close(fig)
-        return HTML(ani.to_html5_video())
+        from matplotlib import rc
+        rc('animation', html='jshtml')
+        return ani
+
+import torchvision.models as models
+import torch.optim as optim
 
 class GAN_Inversion:
     """
@@ -96,14 +102,153 @@ class GAN_Inversion:
     """
     def __init__(self, model: GAN):
         self.model = model
-        pass
+        self.device = device if device is not None else next(model.parameters()).device
 
-    def reconstruct(self, image):
+    def _init_vgg(self):
+        """Simple VGG feature extractor for perceptual loss (uses conv features)."""
+        vgg = models.vgg16(pretrained=True).features.eval().to(self.device)
+        for p in vgg.parameters():
+            p.requires_grad = False
+        # We'll use a few layers (e.g., relu1_2, relu2_2, relu3_3)
+        # Indices correspond to torchvision's VGG implementation
+        layer_idx = {'relu1_2': 3, 'relu2_2': 8, 'relu3_3': 15}
+        return vgg, layer_idx
+
+    def _vgg_features(self, vgg, layer_idx, x):
+        feats = {}
+        cur = x
+        for i, layer in enumerate(vgg):
+            cur = layer(cur)
+            for name, idx in layer_idx.items():
+                if i == idx:
+                    feats[name] = cur
+        return feats
+
+    def reconstruct(self, image, iters=1000, lr=0.05, use_perceptual=True, perc_weight=1.0,
+                     pixel_weight=1.0, z_reg_weight=1e-4, latent_init='random', verbose=False):
         """
-        Uses optimization to reconstruct image, probing into latent, then using some similarity metric/Loss to converge to correct Latent
-        Should return original image, reconstruction, and the latent of the reconstruction.
+        Optimize latent z so that G(z) approximates `image`.
+
+        Args:
+            image: torch.Tensor, shape (C,H,W) or (1,C,H,W), expected in range [-1, 1].
+            iters: number of optimization steps
+            lr: learning rate for optimizer
+            use_perceptual: whether to include VGG perceptual loss (requires torchvision)
+            perc_weight: weight for perceptual loss
+            pixel_weight: weight for pixel L2 loss
+            z_reg_weight: weight for gaussian prior regularizer on z (||z||^2)
+            latent_init: 'zeros' | 'random' | torch.Tensor(initial_z)
+            verbose: print loss occasionally
+
+        Returns:
+            recon_img: tensor (1,C,H,W) in [-1,1]
+            z_opt: optimized latent Tensor (1, latent_dim, 1, 1)
+            logs: dict with final losses (pixel, perceptual, reg) if requested
         """
-        pass
+
+        self.model.eval()
+        device = self.device
+
+        # Ensure batch dimension
+        if image.dim() == 3:
+            image = image.unsqueeze(0)
+        image = image.to(device)
+
+        batch_size = image.size(0)
+        latent_dim = self.model.latent_dim
+
+        # Initialize latent
+        if isinstance(latent_init, torch.Tensor):
+            z = latent_init.to(device).detach().clone()
+            if z.dim() == 2:
+                z = z.view(batch_size, latent_dim, 1, 1)
+        elif latent_init == 'random':
+            z = torch.randn(batch_size, latent_dim, 1, 1, device=device)
+        else:  # 'zeros' by default
+            z = torch.zeros(batch_size, latent_dim, 1, 1, device=device)
+
+        z = z.detach().clone().requires_grad_(True)
+
+        optimizer = optim.Adam([z], lr=lr)
+
+        # Optional perceptual network
+        if use_perceptual:
+            try:
+                vgg, layer_idx = self._init_vgg()
+            except Exception as e:
+                # If VGG is unavailable, disable perceptual
+                if verbose:
+                    print("Warning: VGG initialization failed, disabling perceptual loss:", e)
+                use_perceptual = False
+                vgg = None
+                layer_idx = None
+
+        # Precompute real image vgg features if needed
+        if use_perceptual:
+            # VGG expects inputs in range [0,1] and normalized
+            # Convert image from [-1,1] -> [0,1]
+            image_vgg = (image + 1.0) / 2.0
+            # Normalize with ImageNet stats
+            mean = torch.tensor([0.485, 0.456, 0.406], device=device).view(1,3,1,1)
+            std  = torch.tensor([0.229, 0.224, 0.225], device=device).view(1,3,1,1)
+            image_vgg = (image_vgg - mean) / std
+            real_feats = self._vgg_features(vgg, layer_idx, image_vgg)
+        else:
+            real_feats = None
+
+        last_print = 0
+        logs = {}
+
+        for step in range(1, iters + 1):
+            optimizer.zero_grad()
+
+            # Generate image from current z
+            gen = self.model.generate(z)      # expected range [-1,1]
+            gen_clamped = gen.clamp(-1.0, 1.0)
+
+            # Pixel L2 loss
+            pixel_loss = F.mse_loss(gen_clamped, image) * pixel_weight
+
+            # Perceptual loss (feature matching in VGG feature space)
+            if use_perceptual:
+                gen_vgg = (gen_clamped + 1.0) / 2.0
+                gen_vgg = (gen_vgg - mean) / std
+                gen_feats = self._vgg_features(vgg, layer_idx, gen_vgg)
+
+                perc_loss = 0.0
+                for k in real_feats:
+                    # match mean activations per feature map
+                    rf = real_feats[k].detach()
+                    gf = gen_feats[k]
+                    perc_loss = perc_loss + F.mse_loss(gf, rf)
+                perc_loss = perc_weight * perc_loss
+            else:
+                perc_loss = torch.tensor(0.0, device=device)
+
+            # Regularize z (encourage staying near prior)
+            z_reg = z.pow(2).mean() * z_reg_weight
+
+            loss = pixel_loss + perc_loss + z_reg
+            loss.backward()
+            optimizer.step()
+
+            # Optional: small latent clipping can help with some GANs
+            # z.data = torch.clamp(z.data, -3.0, 3.0)
+
+            if verbose and (step % max(1, iters // 10) == 0 or step == 1):
+                print(f"[{step}/{iters}] total={loss.item():.6f} pixel={pixel_loss.item():.6f} perc={perc_loss.item():.6f} zreg={z_reg.item():.6f}")
+                last_print = step
+
+        # Final outputs
+        with torch.no_grad():
+            recon = self.model.generate(z).clamp(-1.0, 1.0)
+
+        logs['pixel_loss'] = pixel_loss.item()
+        logs['perc_loss'] = perc_loss.item() if isinstance(perc_loss, torch.Tensor) else float(perc_loss)
+        logs['z_reg'] = z_reg.item()
+
+        # Return single-image outputs for convenience
+        return recon.detach(), z.detach(), logs
 
 class GAN_FID:
     """
@@ -162,7 +307,7 @@ class GAN_FID:
             imgs = (imgs * 255).to(torch.uint8).to(self.device)
             self.fid.update(imgs, real=True)
 
-        with torch.no_grad():
+        with torch.inference_mode():
             for _ in range(self.num_fake // self.batch_size):
                 z = torch.randn(self.batch_size, self.latent_dim, 1, 1, device=self.device)
                 fake_imgs = self.GAN.generate(z)
