@@ -135,7 +135,8 @@ class GAN(nn.Module):
             )
 
             self.disc_head = nn.Sequential(
-                nn.Conv2d(feat_maps*8, 1, 4, 1, 0, bias=True),
+                nn.AdaptiveAvgPool2d(1),
+                nn.Conv2d(feat_maps*8, 1, 1, 1, 0, bias=True),
                 nn.Sigmoid()
             )
     
