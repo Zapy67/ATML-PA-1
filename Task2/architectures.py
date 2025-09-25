@@ -97,52 +97,25 @@ class GAN(nn.Module):
         )
 
         # Discriminator
-        if basic:
-            self.disc_features = nn.Sequential(
-                nn.Conv2d(img_channels, feat_maps, 4, 2, 1, bias=True),
-                nn.LeakyReLU(0.2, inplace=True),
+        
+        self.disc_features = nn.Sequential(
+            nn.Conv2d(img_channels, feat_maps, 4, 2, 1, bias=True),
+            nn.LeakyReLU(0.2, inplace=True),
 
-                nn.Conv2d(feat_maps, feat_maps*2, 4, 2, 1, bias=True),
-                nn.BatchNorm2d(feat_maps*2),
-                nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(feat_maps, feat_maps*2, 4, 2, 1, bias=True),
+            nn.BatchNorm2d(feat_maps*2),
+            nn.LeakyReLU(0.2, inplace=True),
 
-                nn.Conv2d(feat_maps*2, feat_maps*4, 4, 2, 1, bias=True),
-                nn.BatchNorm2d(feat_maps*4),
-                nn.LeakyReLU(0.2, inplace=True),
-            )
+            nn.Conv2d(feat_maps*2, feat_maps*4, 4, 2, 1, bias=True),
+            nn.BatchNorm2d(feat_maps*4),
+            nn.LeakyReLU(0.2, inplace=True),
+        )
 
-            # Head (final classifier from features → prob)
-            self.disc_head = nn.Sequential(
-                nn.Conv2d(feat_maps*4, 1, 4, 1, 0, bias=True),
-                nn.Sigmoid()
-            )
-        else:
-            self.disc_features = nn.Sequential(
-                nn.Conv2d(img_channels, feat_maps, 4, 2, 1, bias=True),
-                nn.LeakyReLU(0.2, inplace=True),
-                nn.Dropout2d(0.1),
-
-                nn.Conv2d(feat_maps, feat_maps*2, 4, 2, 1, bias=True),
-                nn.BatchNorm2d(feat_maps*2),
-                nn.LeakyReLU(0.2, inplace=True),
-                nn.Dropout2d(0.1),
-
-                nn.Conv2d(feat_maps*2, feat_maps*4, 4, 2, 1, bias=True),
-                nn.BatchNorm2d(feat_maps*4),
-                nn.LeakyReLU(0.2, inplace=True),
-                nn.Dropout2d(0.1),
-
-                nn.Conv2d(feat_maps*4, feat_maps*8, 4, 2, 1, bias=True),
-                nn.BatchNorm2d(feat_maps*8),
-                nn.LeakyReLU(0.2, inplace=True),
-                nn.Dropout2d(0.1),
-            )
-
-            self.disc_head = nn.Sequential(
-                nn.AdaptiveAvgPool2d(1),
-                nn.Conv2d(feat_maps*8, 1, 1, 1, 0, bias=True),
-                nn.Sigmoid()
-            )
+        # Head (final classifier from features → prob)
+        self.disc_head = nn.Sequential(
+            nn.Conv2d(feat_maps*4, 1, 4, 1, 0, bias=True),
+            nn.Sigmoid()
+        )
     
     def generate(self, z):
         return self.generator(z)
