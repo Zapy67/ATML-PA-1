@@ -69,7 +69,7 @@ def vae_loss(x_reconstruction, x, mu, logvar, epoch=None, epochs=None, kl_anneal
     return total_loss, recon_loss, kl_loss
     
 class GAN(nn.Module):
-    def __init__(self, latent_dim=128, img_channels=3, feat_maps=32, batch_size=64):
+    def __init__(self, latent_dim=128, img_channels=3, feat_maps=32, batch_size=64, basic=True):
         super(GAN, self).__init__()
         self.batch_size = batch_size
         self.latent_dim = latent_dim
@@ -97,25 +97,47 @@ class GAN(nn.Module):
         )
 
         # Discriminator
-        self.disc_features = nn.Sequential(
-            nn.Conv2d(img_channels, feat_maps, 4, 2, 1, bias=True),
-            nn.LeakyReLU(0.2, inplace=True),
+        if basic:
+            self.disc_features = nn.Sequential(
+                nn.Conv2d(img_channels, feat_maps, 4, 2, 1, bias=True),
+                nn.LeakyReLU(0.2, inplace=True),
 
-            nn.Conv2d(feat_maps, feat_maps*2, 4, 2, 1, bias=True),
-            nn.BatchNorm2d(feat_maps*2),
-            nn.LeakyReLU(0.2, inplace=True),
+                nn.Conv2d(feat_maps, feat_maps*2, 4, 2, 1, bias=True),
+                nn.BatchNorm2d(feat_maps*2),
+                nn.LeakyReLU(0.2, inplace=True),
 
-            nn.Conv2d(feat_maps*2, feat_maps*4, 4, 2, 1, bias=True),
-            nn.BatchNorm2d(feat_maps*4),
-            nn.LeakyReLU(0.2, inplace=True),
-        )
+                nn.Conv2d(feat_maps*2, feat_maps*4, 4, 2, 1, bias=True),
+                nn.BatchNorm2d(feat_maps*4),
+                nn.LeakyReLU(0.2, inplace=True),
+            )
 
-        # Head (final classifier from features → prob)
-        self.disc_head = nn.Sequential(
-            nn.Conv2d(feat_maps*4, 1, 4, 1, 0, bias=True),
-            nn.Sigmoid()
-        )
+            # Head (final classifier from features → prob)
+            self.disc_head = nn.Sequential(
+                nn.Conv2d(feat_maps*4, 1, 4, 1, 0, bias=True),
+                nn.Sigmoid()
+            )
+        else:
+            self.disc_features = nn.Sequential(
+                nn.Conv2d(img_channels, feat_maps, 4, 2, 1, bias=True),
+                nn.LeakyReLU(0.2, inplace=True),
 
+                nn.Conv2d(feat_maps, feat_maps*2, 4, 2, 1, bias=True),
+                nn.BatchNorm2d(feat_maps*2),
+                nn.LeakyReLU(0.2, inplace=True),
+
+                nn.Conv2d(feat_maps*2, feat_maps*4, 4, 2, 1, bias=True),
+                nn.BatchNorm2d(feat_maps*4),
+                nn.LeakyReLU(0.2, inplace=True),
+
+                nn.Conv2d(feat_maps*4, feat_maps*8, 4, 2, 1, bias=True),
+                nn.BatchNorm2d(feat_maps*8),
+                nn.LeakyReLU(0.2, inplace=True),
+            )
+
+            self.disc_head = nn.Sequential(
+                nn.Conv2d(feat_maps*8, 1, 4, 1, 0, bias=True),
+                nn.Sigmoid()
+            )
     
     def generate(self, z):
         return self.generator(z)
