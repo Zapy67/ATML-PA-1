@@ -120,18 +120,22 @@ class GAN(nn.Module):
             self.disc_features = nn.Sequential(
                 nn.Conv2d(img_channels, feat_maps, 4, 2, 1, bias=True),
                 nn.LeakyReLU(0.2, inplace=True),
+                nn.Dropout2d(0.3),
 
                 nn.Conv2d(feat_maps, feat_maps*2, 4, 2, 1, bias=True),
                 nn.BatchNorm2d(feat_maps*2),
                 nn.LeakyReLU(0.2, inplace=True),
+                nn.Dropout2d(0.3),
 
                 nn.Conv2d(feat_maps*2, feat_maps*4, 4, 2, 1, bias=True),
                 nn.BatchNorm2d(feat_maps*4),
                 nn.LeakyReLU(0.2, inplace=True),
+                nn.Dropout2d(0.3),
 
                 nn.Conv2d(feat_maps*4, feat_maps*8, 4, 2, 1, bias=True),
                 nn.BatchNorm2d(feat_maps*8),
                 nn.LeakyReLU(0.2, inplace=True),
+                nn.Dropout2d(0.3),
             )
 
             self.disc_head = nn.Sequential(
@@ -192,7 +196,7 @@ class GAN(nn.Module):
         else:
             # Label smoothing: real=0.9
             real_labels = torch.full((batch_size,), 0.9, device=x.device)
-            fake_labels = torch.zeros_like(out_fake)
+            fake_labels = torch.full((batch_size,), 0.1, device=x.device)
 
         d_real_loss = loss_fn(out_real, real_labels)
         d_fake_loss = loss_fn(out_fake, fake_labels)
